@@ -736,7 +736,7 @@ async function handleFiles(files) {
       if (findDup(p)) { dup++; continue; }
       const maybe = maybeDup(p);
       const item = { id: uid(), date: p.date || todayISO(), time: p.time, amount: p.amount || 0, fee: p.fee || 0,
-        to: c.who, from: p.from, type: c.type, excluded: c.excluded, own: !!c.own, created: Date.now(), cat: c.excluded ? "other" : guessCat(c.who, c.type),
+        to: c.who, from: p.from, type: c.type, excluded: c.excluded, own: !!c.own, created: Date.now(), dateGuessed: !p.date, cat: c.excluded ? "other" : guessCat(c.who, c.type),
         bank: p.bank, ref: p.ref, note: c.note, thumb, check: p.check, sample: false, raw: raw.slice(0, 3000) };
       if (maybe) { item.check = true; item.note = (item.note ? item.note + " · " : "") + "อาจซ้ำกับรายการเดิม"; maybeN++; }
       if (item.type === "in" && !item.excluded) {
@@ -820,7 +820,7 @@ function cashFlow() {
   const b = state.settings.balance; let inn = 0, out = 0;
   if (!b) return { inn, out };
   state.items.forEach(i => {
-    if (i.sample || i.own || !afterAnchor(i, b)) return;
+    if (i.sample || i.own || i.dateGuessed || !afterAnchor(i, b)) return;
     if (i.type === "in") inn += i.amount; else out += i.amount + (i.fee || 0);
   });
   return { inn, out };
@@ -1050,7 +1050,7 @@ $("sheet-form").addEventListener("submit", e => {
   const amount = parseFloat(($("f-amount").value || "").replace(/[^\d.]/g, ""));
   if (!isFinite(amount) || amount <= 0) { $("f-amount").focus(); toast("ใส่จำนวนเงินก่อนนะ"); return; }
   const date = $("f-date").value || todayISO();
-  const data = { amount: Math.round(amount * 100) / 100, date, time: $("f-time").value, to: $("f-to").value.trim(), note: $("f-note").value.trim(), cat: editCat, type: editType, excluded: $("f-ex").checked, check: false,
+  const data = { amount: Math.round(amount * 100) / 100, date, time: $("f-time").value, to: $("f-to").value.trim(), note: $("f-note").value.trim(), cat: editCat, type: editType, excluded: $("f-ex").checked, check: false, dateGuessed: false,
     split: editType === "out" ? formShare().n : 1,
     mine: editType === "out" && formShare().set && formShare().n === 1 ? formShare().mine : 0,
     refundOf: editType === "in" && editCat === "in-refund" ? $("f-refund-of").value : "" };
