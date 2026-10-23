@@ -1,0 +1,1172 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SLIP฿SUM">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body>
+<title>SLIP฿SUM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: dark arcade column — pixel-scene hero (wordmark + SCAN SLIP), month total, budget blocks, daily bars, category tiles, payees, list, backup.
+   One committed dark look: monochrome chrome, colour lives in the scene and category tiles, lime only for active/positive states. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #181818;
+  --line: #252525;
+  --ink: #ffffff;
+  --muted: #9aa0a6;
+  --dim: #6f747b;
+  --accent: #d7f36a;
+  --accent-ink: #0a0a0a;
+  --danger: #ff6b5b;
+  --warn: #f2b632;
+  --pos: #d7f36a;
+  --c-food: #4a90ff;
+  --c-travel: #ff7a45;
+  --c-bills: #2ec58d;
+  --c-shop: #f2b632;
+  --c-people: #ff86b3;
+  --c-other: #8a8f95;
+  --c-in-work: #d7f36a;
+  --c-in-sell: #b18cff;
+  --font-px: "Press Start 2P", "Silkscreen", ui-monospace, monospace;
+  --font-px2: "Silkscreen", "IBM Plex Sans Thai", ui-monospace, monospace;
+  --font-body: "IBM Plex Sans Thai", "Sukhumvit Set", "Noto Sans Thai", Tahoma, sans-serif;
+  --r: 20px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background-color: var(--bg); background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,.04) 0 1px, transparent 1px 3px); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- hero scene ---------- */
+.scene { position: relative; height: 380px; overflow: hidden; background: #2f6fd6; }
+.scene svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.scene-bar { position: absolute; top: 14px; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mnav { display: flex; align-items: center; gap: 2px; background: rgba(0,0,0,.45); border-radius: 999px; padding: 3px; }
+.mnav button { width: 34px; height: 34px; border: 0; border-radius: 999px; background: transparent; color: #fff; font-size: 18px; line-height: 1; }
+.mnav button:disabled { opacity: .3; cursor: default; }
+.mnav strong { font-size: 13px; font-weight: 600; padding: 0 6px; white-space: nowrap; }
+.gear { height: 40px; padding: 0 16px; border: 0; border-radius: 999px; background: rgba(0,0,0,.45); color: #fff; font-size: 14px; }
+.scene-copy { position: absolute; left: 0; right: 0; top: 96px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 0 16px; }
+.mark { margin: 0; font-family: var(--font-px); font-weight: 400; font-size: clamp(26px, 8vw, 34px); letter-spacing: 1px; line-height: 1.1; text-shadow: 3px 3px 0 #0a0a0a; }
+.mark b { font-family: var(--font-body); font-weight: 700; font-size: 1.25em; color: var(--accent); }
+.tagline { margin: 0; font-size: 15px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+.scene-cta { position: absolute; left: 0; right: 0; bottom: 22px; display: flex; justify-content: center; }
+.cta { height: 54px; padding: 0 30px; border: 0; border-radius: 999px; background: #fff; color: #0a0a0a; font-family: var(--font-px); font-size: 12px; letter-spacing: 2px; box-shadow: 0 4px 0 #0a0a0a; transition: transform .12s; }
+.cta:active { transform: translateY(2px); box-shadow: 0 2px 0 #0a0a0a; }
+.cta:disabled { opacity: .6; cursor: progress; }
+
+/* ---------- page ---------- */
+.wrap { max-width: 560px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+.pill-label { justify-self: center; background: #fff; color: #0a0a0a; border-radius: 999px; padding: 6px 13px; font-family: var(--font-px); font-size: 8px; letter-spacing: 1.5px; }
+.summary { display: grid; gap: 10px; justify-items: center; text-align: center; }
+.total { margin: 0; font-family: var(--font-px); font-size: clamp(26px, 8.5vw, 36px); line-height: 1.25; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.total .cur { font-family: var(--font-body); font-weight: 700; font-size: 1.05em; color: var(--accent); margin-right: 4px; }
+.total small { font-size: .45em; color: var(--muted); }
+.sub { margin: 0; font-size: 13.5px; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; }
+.delta { font-weight: 600; white-space: nowrap; }
+.delta.up { color: var(--danger); }
+.delta.down { color: var(--pos); }
+.linkbtn { border: 0; background: none; color: var(--accent); padding: 0; font-size: 13.5px; font-weight: 600; text-align: left; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; width: 100%; }
+.stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 11px 12px; display: grid; gap: 2px; text-align: left; min-width: 0; }
+.stats span { font-size: 12px; color: var(--muted); }
+.stats strong { font-family: var(--font-px2); font-size: 16px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stats .pos { color: var(--pos); }
+.stats .neg { color: var(--danger); }
+
+.actions { display: flex; justify-content: center; }
+.btn { border: 1px solid #303030; background: var(--surface2); color: #e6e8ea; border-radius: 999px; padding: 10px 18px; font-weight: 600; min-height: 46px; }
+.btn.primary { background: #fff; border-color: #fff; color: #0a0a0a; }
+.btn.small { min-height: 40px; padding: 8px 15px; font-size: 14px; font-weight: 500; }
+.btn.danger { color: var(--danger); }
+
+.note { border-radius: 16px; padding: 12px 14px; font-size: 13.5px; display: grid; gap: 8px; border: 1px solid var(--line); }
+.note.sample { background: #1d1a0c; border-color: #3a3410; }
+.note.sample b { color: var(--warn); }
+.note.err { background: #2a1210; border-color: #4a1d18; }
+.prog { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 8px; }
+.prog-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.prog-top .num { font-family: var(--font-px2); }
+.bar { height: 10px; background: #1e1e1e; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background-image: repeating-linear-gradient(90deg, var(--accent) 0 8px, transparent 8px 10px); transition: width .25s; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.sh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 0 10px; }
+.sh h2 { margin: 0; font-family: var(--font-px2); font-weight: 400; font-size: 14px; letter-spacing: 1.5px; color: var(--muted); }
+.sh h2 span { font-family: var(--font-body); letter-spacing: 0; font-size: 13px; color: var(--dim); margin-left: 6px; }
+.sh .hint-r { font-size: 12.5px; color: var(--dim); }
+.sh button { border: 0; background: none; color: var(--accent); font-size: 13px; padding: 4px; }
+
+/* budget */
+.budget { display: grid; gap: 10px; }
+.budget-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); }
+.budget-top b { color: var(--ink); font-family: var(--font-px2); font-weight: 400; }
+.blocks { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; }
+.blocks i { height: 14px; background: #262626; }
+.blocks i.on { background: var(--accent); }
+.blocks.warn i.on { background: var(--warn); }
+.blocks.over i.on { background: var(--danger); }
+.budget-msg { font-size: 15px; margin: 0; }
+.budget-msg b { font-family: var(--font-px2); font-weight: 400; font-size: 16px; }
+.budget-msg b.acc { color: var(--accent); }
+.budget-msg.over { color: var(--danger); }
+
+/* daily */
+.readout { font-size: 13px; color: var(--muted); min-height: 1.5em; margin: 0 0 8px; }
+.readout b { color: var(--ink); font-family: var(--font-px2); font-weight: 400; }
+#daily-chart svg { display: block; width: 100%; height: 150px; }
+#daily-chart .b { cursor: pointer; }
+
+/* categories */
+.cats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cat-card { border: 1.5px solid transparent; border-radius: 18px; padding: 13px 14px; text-align: left; display: grid; gap: 12px; min-width: 0; transition: transform .12s; }
+.cat-card:active { transform: scale(.98); }
+.cat-card[aria-pressed="true"] { border-color: var(--accent); }
+.cat-card.zero { opacity: .45; }
+.cat-card .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.cat-card .pct { background: rgba(0,0,0,.4); border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-family: var(--font-px2); }
+.cat-card .dl { font-size: 11.5px; font-weight: 600; }
+.cat-card .dl.up { color: #ffb4aa; }
+.cat-card .dl.down { color: var(--accent); }
+.cat-card .nm { font-size: 13.5px; }
+.cat-card .am { font-family: var(--font-px); font-size: 13px; letter-spacing: -0.5px; }
+
+/* top payees */
+.top-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 2px; border-top: 1px solid #1e1e1e; }
+.top-row:first-child { border-top: 0; }
+.top-row .rk { font-family: var(--font-px); font-size: 11px; color: var(--accent); }
+.top-row strong { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.top-row span.n { font-size: 12.5px; color: var(--dim); }
+.top-row .amt { font-family: var(--font-px2); font-size: 15px; }
+
+/* list */
+.list-tools { display: grid; gap: 8px; margin-bottom: 4px; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg button { border: 1.5px solid transparent; background: var(--surface2); color: var(--muted); border-radius: 999px; padding: 8px 4px; font-size: 14px; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: transparent; color: #fff; font-weight: 600; }
+.search { font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; width: 100%; }
+.search::placeholder { color: var(--dim); }
+.day { margin-top: 12px; }
+.day-h { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 0 6px 5px; gap: 8px; }
+.day-h span:last-child { font-family: var(--font-px2); }
+.rows { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 13px 16px; border: 0; border-top: 1px solid #1e1e1e; background: transparent; text-align: left; }
+.row:first-child { border-top: 0; }
+.row:hover { background: #151515; }
+.row .dot { border-radius: 0; }
+.row .who { min-width: 0; }
+.row .who strong { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .who span { font-size: 12.5px; color: var(--dim); }
+.row .amt { font-family: var(--font-px2); font-size: 15px; text-align: right; white-space: nowrap; }
+.row.in .amt { color: var(--pos); }
+.row.rf .amt { color: var(--muted); }
+.row.ex .who strong, .row.ex .amt { text-decoration: line-through; opacity: .5; }
+.dot { width: 10px; height: 10px; flex: none; display: inline-block; }
+.flag { display: inline-block; font-size: 11px; font-weight: 600; color: #0a0a0a; background: var(--warn); border-radius: 999px; padding: 0 7px; margin-left: 4px; }
+.flag.ex, .flag.sp { color: #d0d3d6; background: #262626; }
+.flag.in { color: #0a0a0a; background: var(--accent); }
+.empty { text-align: center; color: var(--muted); padding: 28px 10px; font-size: 14px; }
+
+.export { display: flex; flex-wrap: wrap; gap: 8px; }
+.privacy { font-size: 12.5px; color: var(--dim); margin: 10px 0 0; }
+
+/* sheets */
+.sheet-bg { position: fixed; inset: 0; background: rgb(0 0 0 / .6); z-index: 30; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: #121212; border: 1px solid var(--line); border-bottom: 0; width: 100%; max-width: 560px; max-height: 92%; overflow: auto; border-radius: 24px 24px 0 0; padding: 20px max(16px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 14px; }
+.sheet h3 { margin: 0; font-size: 17px; }
+.sheet .seg button { padding: 9px 4px; }
+.sheet .thumb { max-height: 260px; width: auto; max-width: 100%; border-radius: 12px; border: 1px solid var(--line); justify-self: center; cursor: zoom-in; }
+.sheet .thumb.big { max-height: none; cursor: zoom-out; }
+.raw summary { font-size: 13px; color: var(--muted); cursor: pointer; }
+.raw pre { white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #0b0b0b; border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 8px 0; max-height: 240px; overflow: auto; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fields .full { grid-column: 1 / -1; }
+label.f { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); min-width: 0; }
+label.f input, label.f select { font: inherit; font-size: 16px; color: var(--ink); background: #0b0b0b; border: 1px solid #2c2c2c; border-radius: 12px; padding: 10px 12px; min-width: 0; width: 100%; }
+label.f select { font-size: 15px; }
+#f-amount, #s-budget { font-family: var(--font-px2); font-size: 24px; }
+label.chk { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+label.chk input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid #2c2c2c; background: var(--surface2); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: #d8dadc; }
+.chip[aria-pressed="true"] { border-color: var(--accent); background: transparent; color: #fff; font-weight: 600; }
+.sheet-actions { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.sheet-actions .right { display: flex; gap: 8px; margin-left: auto; }
+.hint { font-size: 12.5px; color: var(--dim); margin: -6px 0 0; }
+.hint b { color: var(--ink); }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: #fff; color: #0a0a0a; padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 500; z-index: 40; max-width: calc(100% - 32px); box-shadow: 0 6px 20px rgba(0,0,0,.5); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="scene">
+  <svg viewBox="0 0 78 72" preserveAspectRatio="xMidYMax slice" shape-rendering="crispEdges" aria-hidden="true">
+    <rect x="-40" y="0" width="160" height="12" fill="#2f6fd6"></rect>
+    <rect x="-40" y="12" width="160" height="12" fill="#3f82e6"></rect>
+    <rect x="-40" y="24" width="160" height="12" fill="#5596ef"></rect>
+    <rect x="-40" y="36" width="160" height="10" fill="#6aa8f5"></rect>
+    <rect x="-40" y="46" width="160" height="26" fill="#1f5fb8"></rect>
+    <rect x="-40" y="48" width="160" height="1" fill="#3a7bd6"></rect>
+    <rect x="-40" y="52" width="160" height="1" fill="#2c6cc8"></rect>
+    <rect x="-40" y="57" width="160" height="1" fill="#2a66bf"></rect>
+    <rect x="4" y="14" width="10" height="2" fill="#ffffff"></rect><rect x="2" y="16" width="15" height="2" fill="#ffffff"></rect><rect x="6" y="12" width="5" height="2" fill="#ffffff"></rect>
+    <rect x="62" y="13" width="12" height="2" fill="#ffffff"></rect><rect x="59" y="15" width="18" height="2" fill="#ffffff"></rect><rect x="65" y="11" width="6" height="2" fill="#ffffff"></rect>
+    <rect x="62" y="30" width="9" height="2" fill="#eaf3ff"></rect><rect x="60" y="32" width="13" height="2" fill="#eaf3ff"></rect>
+    <rect x="2" y="33" width="8" height="2" fill="#eaf3ff"></rect><rect x="1" y="35" width="12" height="2" fill="#eaf3ff"></rect>
+    <rect x="-30" y="14" width="12" height="2" fill="#ffffff"></rect><rect x="-33" y="16" width="18" height="2" fill="#ffffff"></rect>
+    <rect x="88" y="18" width="12" height="2" fill="#ffffff"></rect><rect x="85" y="20" width="18" height="2" fill="#ffffff"></rect>
+    <rect x="20" y="50" width="38" height="4" fill="#3d9a4a"></rect>
+    <rect x="17" y="54" width="44" height="4" fill="#2f7f3b"></rect>
+    <rect x="19" y="58" width="40" height="3" fill="#8a5a2b"></rect>
+    <rect x="23" y="61" width="32" height="3" fill="#6e4520"></rect>
+    <rect x="28" y="64" width="22" height="2" fill="#57361a"></rect>
+    <rect x="44" y="34" width="12" height="16" fill="#ffffff"></rect>
+    <rect x="45" y="36" width="10" height="1" fill="#2fa36b"></rect>
+    <rect x="45" y="39" width="7" height="1" fill="#b9bec5"></rect>
+    <rect x="45" y="41" width="9" height="1" fill="#b9bec5"></rect>
+    <rect x="45" y="44" width="5" height="2" fill="#0a0a0a"></rect>
+    <rect x="44" y="50" width="2" height="1" fill="#ffffff"></rect><rect x="48" y="50" width="2" height="1" fill="#ffffff"></rect><rect x="52" y="50" width="2" height="1" fill="#ffffff"></rect>
+    <rect x="24" y="46" width="12" height="2" fill="#c98a00"></rect><rect x="24" y="44" width="12" height="2" fill="#f5c22e"></rect>
+    <rect x="25" y="42" width="12" height="2" fill="#c98a00"></rect><rect x="25" y="40" width="12" height="2" fill="#f5c22e"></rect>
+    <rect x="24" y="38" width="12" height="2" fill="#c98a00"></rect><rect x="24" y="36" width="12" height="2" fill="#ffd95a"></rect>
+    <rect x="37" y="44" width="5" height="2" fill="#c98a00"></rect><rect x="37" y="42" width="5" height="2" fill="#f5c22e"></rect>
+    <rect x="29" y="37" width="2" height="1" fill="#fff4c2"></rect>
+    <rect x="38" y="26" width="4" height="4" fill="#f5c22e"></rect><rect x="39" y="27" width="2" height="2" fill="#c98a00"></rect>
+    <rect x="18" y="22" width="3" height="3" fill="#f5c22e"></rect>
+    <rect x="57" y="20" width="3" height="3" fill="#f5c22e"></rect>
+  </svg>
+  <div class="scene-bar">
+    <div class="mnav">
+      <button id="prev" aria-label="เดือนก่อนหน้า">‹</button>
+      <strong id="month-label">—</strong>
+      <button id="next" aria-label="เดือนถัดไป">›</button>
+    </div>
+    <button class="gear" id="open-settings">ตั้งค่า</button>
+  </div>
+  <div class="scene-copy">
+    <h1 class="mark">SLIP<b>฿</b>SUM</h1>
+    <p class="tagline">เก็บสลิปทุกใบ ให้กลายเป็นวินัย</p>
+  </div>
+  <div class="scene-cta">
+    <button class="cta" id="pick" aria-label="เลือกสลิปจากแกลเลอรี">SCAN SLIP</button>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="summary">
+    <span class="pill-label">THIS MONTH</span>
+    <p class="total" id="total"><span class="cur">฿</span>0<small>.00</small></p>
+    <p class="sub" id="sub"></p>
+    <div class="stats">
+      <div><span>รายรับ</span><strong id="s-in" class="pos">0</strong></div>
+      <div><span>คงเหลือ</span><strong id="s-net">0</strong></div>
+      <div><span>ออมได้</span><strong id="s-save">–</strong></div>
+    </div>
+    <div class="actions"><button class="btn" id="add-manual">+ เพิ่มรายการเอง</button></div>
+  </div>
+
+  <div class="note sample" id="sample-note" hidden>
+    <div><b>ตอนนี้เป็นข้อมูลตัวอย่าง</b> ลองแตะรายการเพื่อดูวิธีแก้ไขได้ พอเพิ่มสลิปจริงใบแรก ตัวอย่างจะถูกลบออกเอง</div>
+  </div>
+  <div class="note err" id="err-note" hidden></div>
+
+  <div class="prog" id="prog" hidden>
+    <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
+    <div class="bar"><i id="prog-bar"></i></div>
+  </div>
+
+  <section class="card">
+    <div class="sh"><h2>BUDGET<span>งบเดือนนี้</span></h2></div>
+    <div class="budget" id="budget"></div>
+  </section>
+
+  <section class="card" id="daily">
+    <div class="sh"><h2>DAILY<span>รายจ่ายรายวัน</span></h2></div>
+    <p class="readout" id="readout">แตะแท่งกราฟเพื่อดูยอดของวันนั้น</p>
+    <div id="daily-chart"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2>CATEGORIES<span>รายจ่ายแยกหมวด</span></h2><span class="hint-r">แตะเพื่อกรอง</span></div>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="card" id="top-sec">
+    <div class="sh"><h2>TOP<span>จ่ายให้ใครมากสุด</span></h2></div>
+    <div class="top" id="top"></div>
+  </section>
+
+  <section>
+    <div class="sh"><h2 id="list-title">รายการทั้งหมด</h2><button id="clear-filter" hidden>ดูทุกหมวด</button></div>
+    <div class="list-tools">
+      <div class="seg" id="seg">
+        <button data-t="all" aria-pressed="true">ทั้งหมด</button>
+        <button data-t="out" aria-pressed="false">รายจ่าย</button>
+        <button data-t="in" aria-pressed="false">รายรับ</button>
+      </div>
+      <input class="search" id="search" type="search" placeholder="ค้นหาชื่อ ร้าน หรือบันทึก" autocomplete="off">
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="card">
+    <div class="sh"><h2>BACKUP<span>Excel และสำรองข้อมูล</span></h2></div>
+    <div class="export">
+      <button class="btn small" id="dl-csv">ดาวน์โหลด CSV เดือนนี้</button>
+      <button class="btn small" id="copy-csv">คัดลอกเป็นตาราง</button>
+      <button class="btn small" id="backup">สำรองข้อมูลทั้งหมด</button>
+      <button class="btn small" id="import">นำเข้า CSV</button>
+      <input type="file" id="import-file" accept=".csv,text/csv" hidden>
+      <button class="btn small" id="selftest">ทดสอบตัวอ่านสลิป</button>
+      <button class="btn small danger" id="wipe">ลบข้อมูลทั้งหมด</button>
+    </div>
+    <p class="privacy" id="selftest-out" hidden></p>
+    <p class="privacy">สลิปของคุณไม่ถูกอัปโหลดไปที่ไหน ตัวอ่านสลิปทำงานบนเครื่องนี้ ข้อมูลเก็บไว้ในเครื่องนี้เท่านั้น กด “สำรองข้อมูลทั้งหมด” เก็บไว้ทุกสิ้นเดือน ถ้าเปลี่ยนเครื่อง ใช้ “นำเข้า CSV” เอาข้อมูลกลับมาได้</p>
+  </section>
+</div>
+
+<!-- แก้ไขรายการ -->
+<div class="sheet-bg" id="sheet" hidden>
+  <form class="sheet" id="sheet-form" novalidate>
+    <h3 id="sheet-title">แก้ไขรายการ</h3>
+    <img class="thumb" id="f-thumb" alt="รูปสลิป" hidden>
+    <div class="seg" id="f-type" style="grid-template-columns:1fr 1fr">
+      <button type="button" data-t="out" aria-pressed="true">รายจ่าย</button>
+      <button type="button" data-t="in" aria-pressed="false">รายรับ</button>
+    </div>
+    <div class="fields">
+      <label class="f full">จำนวนเงิน (บาท)<input id="f-amount" inputmode="decimal" autocomplete="off"></label>
+      <label class="f">วันที่<input id="f-date" type="date"></label>
+      <label class="f">เวลา<input id="f-time" type="time"></label>
+      <label class="f full"><span id="f-to-label">จ่ายให้ใคร / ร้านไหน</span><input id="f-to" autocomplete="off"></label>
+      <label class="f full">บันทึกเพิ่ม<input id="f-note" autocomplete="off" placeholder="เช่น ก๋วยเตี๋ยว"></label>
+    </div>
+    <div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">หมวด</div>
+      <div class="chips" id="f-cats"></div>
+    </div>
+    <div id="split-box" hidden style="display:grid;gap:8px">
+      <div class="fields">
+        <label class="f">หารเท่ากันกี่คน<input id="f-split" type="number" min="1" step="1" inputmode="numeric"></label>
+        <label class="f">หรือ ส่วนของเรา (บาท)<input id="f-mine" inputmode="decimal" autocomplete="off" placeholder="เช่น 130"></label>
+      </div>
+      <p class="hint" id="split-info" style="margin:0"></p>
+      <div id="repay-box" class="fields" hidden>
+        <label class="f">เพื่อนคืนมาแล้ว (บาท)<input id="f-repay" inputmode="decimal" autocomplete="off"></label>
+        <button type="button" class="btn small" id="f-repay-btn" style="align-self:end">บันทึกว่าเพื่อนคืนแล้ว</button>
+      </div>
+    </div>
+    <div id="refund-box" hidden style="display:grid;gap:4px">
+      <label class="f">เพื่อนคืนค่าอะไร<select id="f-refund-of"></select></label>
+      <p class="hint" style="margin:0">ยอดนี้จะไปหักออกจากรายจ่ายนั้น และไม่นับเป็นรายรับ</p>
+    </div>
+    <label class="chk"><input type="checkbox" id="f-ex"><span>ไม่นับในยอด<small>เช่น โอนเข้าบัญชีตัวเอง หรือเงินที่โอนแทนคนอื่นทั้งก้อน</small></span></label>
+    <details class="raw" id="f-raw" hidden>
+      <summary>ดูข้อความที่ตัวอ่านเห็น (ไว้ส่งให้พี่แก้ตัวอ่าน)</summary>
+      <pre id="f-raw-text"></pre>
+      <button type="button" class="btn small" id="f-raw-copy">คัดลอกข้อความ</button>
+    </details>
+    <div class="sheet-actions">
+      <button type="button" class="btn small danger" id="f-del">ลบรายการ</button>
+      <div class="right">
+        <button type="button" class="btn small" id="f-cancel">ยกเลิก</button>
+        <button type="submit" class="btn small primary">บันทึก</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- ตั้งค่า -->
+<div class="sheet-bg" id="settings" hidden>
+  <form class="sheet" id="settings-form" novalidate>
+    <h3>ตั้งค่า</h3>
+    <label class="f">งบรายจ่ายต่อเดือน (บาท)<input id="s-budget" inputmode="decimal" autocomplete="off" placeholder="เช่น 8000"></label>
+    <p class="hint">ใส่ 0 หรือเว้นว่าง ถ้าไม่อยากใช้งบ</p>
+    <label class="f">ชื่อบัญชีของฉัน (ตามที่ขึ้นบนสลิป)<input id="s-name" autocomplete="off" placeholder="เช่น ธนกร"></label>
+    <p class="hint">ใช้แยกรายรับอัตโนมัติ สลิปที่ผู้รับเป็นชื่อนี้จะนับเป็นรายรับ ถ้าทั้งผู้โอนและผู้รับเป็นชื่อนี้ จะถือเป็นโอนระหว่างบัญชีตัวเองและไม่นับในยอด ใส่แค่ชื่อจริงก็พอ</p>
+    <div class="sheet-actions">
+      <div class="right">
+        <button type="button" class="btn small" id="s-cancel">ยกเลิก</button>
+        <button type="submit" class="btn small primary">บันทึก</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+"use strict";
+/* ============ 1) ค่าคงที่ ============ */
+const CATS_OUT = [
+  { id: "food",   name: "อาหาร",       color: "var(--c-food)",   type: "out" },
+  { id: "travel", name: "เดินทาง",      color: "var(--c-travel)", type: "out" },
+  { id: "bills",  name: "บิล/รายเดือน", color: "var(--c-bills)",  type: "out" },
+  { id: "shop",   name: "ช้อปปิ้ง",     color: "var(--c-shop)",   type: "out" },
+  { id: "people", name: "โอนให้คน",    color: "var(--c-people)", type: "out" },
+  { id: "other",  name: "อื่นๆ",        color: "var(--c-other)",  type: "out" },
+];
+const CATS_IN = [
+  { id: "in-work", name: "ค่าจ้าง/เงินเดือน", color: "var(--c-in-work)", type: "in" },
+  { id: "in-sell", name: "ขายของ",          color: "var(--c-in-sell)", type: "in" },
+  { id: "in-gift", name: "ได้รับโอน",        color: "var(--c-people)",  type: "in" },
+  { id: "in-refund", name: "เงินคืนค่าหาร",  color: "var(--c-food)",    type: "in" },
+  { id: "in-other", name: "รายรับอื่น",      color: "var(--c-other)",   type: "in" },
+];
+const CAT = Object.fromEntries([...CATS_OUT, ...CATS_IN].map(c => [c.id, c]));
+const TH_MONTH = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const TH_MONTH_FULL = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const STORE_KEY = "slipsum.v1";
+const $ = id => document.getElementById(id);
+
+/* ============ 2) เก็บข้อมูลในเครื่อง ============ */
+let state = { items: [], catMap: {}, settings: { budget: 0, myName: "ธนกร" } };
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      state = { items: s.items || [], catMap: s.catMap || {}, settings: Object.assign({ budget: 0, myName: "ธนกร" }, s.settings || {}) };
+    }
+  } catch (e) {}
+  state.items.forEach(i => { if (!i.type) i.type = "out"; if (!CAT[i.cat]) i.cat = i.type === "in" ? "in-other" : "other"; });
+}
+function save() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); return; } catch (e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ ...state, items: state.items.map(i => ({ ...i, thumb: "", raw: "" })) })); toast("พื้นที่เก็บรูปเต็ม จึงเก็บเฉพาะตัวเลข"); } catch (e) {}
+}
+
+/* ============ 3) ตัวช่วยเรื่องเงินและวันที่ ============ */
+const fmt = n => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmt0 = n => Math.round(n).toLocaleString("en-US");
+const pad = n => String(n).padStart(2, "0");
+const ymKey = d => d.slice(0, 7);
+function thaiDate(iso) { const [y, m, d] = iso.split("-").map(Number); return `${d} ${TH_MONTH[m - 1]} ${String(y + 543).slice(2)}`; }
+function thaiMonth(ym) { const [y, m] = ym.split("-").map(Number); return `${TH_MONTH_FULL[m - 1]} ${y + 543}`; }
+function daysIn(ym) { const [y, m] = ym.split("-").map(Number); return new Date(y, m, 0).getDate(); }
+function todayISO() { const t = new Date(); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; }
+function prevYm(ym) { let [y, m] = ym.split("-").map(Number); m--; if (!m) { m = 12; y--; } return `${y}-${pad(m)}`; }
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const isOut = i => i.type !== "in" && !i.excluded;
+const isIn = i => i.type === "in" && !i.excluded && i.cat !== "in-refund";
+const isRefund = i => i.type === "in" && !i.excluded && i.cat === "in-refund" && !!i.refundOf;
+let refundMap = new Map();
+function buildRefunds() { refundMap = new Map(); state.items.forEach(i => { if (isRefund(i)) refundMap.set(i.refundOf, (refundMap.get(i.refundOf) || 0) + i.amount); }); }
+const refunded = i => refundMap.get(i.id) || 0;
+const hasMine = i => i.mine > 0 && i.mine < i.amount;
+const hasSplit = i => hasMine(i) || i.split > 1;
+const share = i => (hasMine(i) ? i.mine : i.split > 1 ? i.amount / i.split : i.amount);
+// ยอดที่เป็นของเราจริง: ถ้าตั้งส่วนของเรา (หารเท่ากันหรือใส่เอง) ใช้ส่วนนั้น ไม่งั้นใช้ยอดจ่ายลบเงินที่เพื่อนคืนมา
+function eff(i) { if (i.type === "in") return i.amount; return hasSplit(i) ? share(i) : Math.max(0, i.amount - refunded(i)); }
+const owed = i => (isOut(i) && hasSplit(i) ? Math.max(0, i.amount - share(i) - refunded(i)) : 0);
+const sum = arr => arr.reduce((s, i) => s + eff(i), 0);
+
+/* ============ 4) ตัวแยกข้อความสลิป (หัวใจของแอป) ============ */
+function normalize(text) {
+  return text.normalize("NFC")
+    .replace(/ํา/g, "ำ")
+    .replace(/[๐-๙]/g, d => String(d.charCodeAt(0) - 0x0e50))
+    .replace(/[ \t]+/g, " ");
+}
+const MONEY = /(\d{1,3}(?:[,.]\s?\d{3})+|\d+)\s?[.,]\s?(\d{2})(?!\d)/;
+function parseMoney(s) {
+  const m = s.match(MONEY); if (!m) return null;
+  const v = parseFloat(m[1].replace(/\D/g, "") + "." + m[2]);
+  return isFinite(v) ? v : null;
+}
+function monthFrom(tok) {
+  const t = tok.toLowerCase();
+  const en = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"].findIndex(x => t.startsWith(x));
+  if (en >= 0) return en + 1;
+  const c = tok.replace(/[^ก-ฮ]/g, "");
+  const full = { "มกรคม":1,"กมภพนธ":2,"มนคม":3,"มษยน":4,"พฤษภคม":5,"มถนยน":6,"กรกฎคม":7,"สงหคม":8,"กนยยน":9,"ตลคม":10,"พฤศจกยน":11,"ธนวคม":12 };
+  if (full[c]) return full[c];
+  switch (c) {
+    case "มค": return tok.includes("ี") ? 3 : 1;
+    case "กพ": return 2;
+    case "มย": return tok.includes("เ") ? 4 : tok.includes("ิ") ? 6 : null;
+    case "พค": return 5;
+    case "กค": return 7;
+    case "สค": return 8;
+    case "กย": return 9;
+    case "ตค": return 10;
+    case "พย": return 11;
+    case "ธค": return 12;
+  }
+  return null;
+}
+function fixYear(y) {
+  if (y < 100) y = y >= 40 ? 2500 + y - 543 : 2000 + y;
+  else if (y > 2400) y -= 543;
+  return y >= 2000 && y <= 2100 ? y : null;
+}
+function findDate(text) {
+  const re = /(\d{1,2})[ \t]*([ก-๎.]{2,14}|[A-Za-z]{3,9})\.?[ \t]*(\d{4}|\d{2})(?!\d)/g;
+  let m;
+  while ((m = re.exec(text))) {
+    const d = +m[1], mo = monthFrom(m[2]), y = fixYear(+m[3]);
+    if (!mo || d < 1 || d > 31 || !y) { re.lastIndex = m.index + 1; continue; }
+    return { iso: `${y}-${pad(mo)}-${pad(d)}`, at: m.index + m[0].length };
+  }
+  // แบบตัวเลข: 23/10/69, 23-10-2569, 2026-10-23
+  const iso = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+  if (iso && +iso[2] >= 1 && +iso[2] <= 12) return { iso: `${iso[1]}-${iso[2]}-${iso[3]}`, at: iso.index + iso[0].length };
+  const re2 = /(?<![\d.,])(\d{1,2})\s?[\/\-]\s?(\d{1,2})\s?[\/\-]\s?(\d{4}|\d{2})(?!\d)/g;
+  while ((m = re2.exec(text))) {
+    const d = +m[1], mo = +m[2], y = fixYear(+m[3]);
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y) return { iso: `${y}-${pad(mo)}-${pad(d)}`, at: m.index + m[0].length };
+  }
+  return null;
+}
+const BANK_LINE = /^(ธ\.|ธนาคาร|พร้อมเพย์|promptpay|k\s?plus|wallet|true\s?money|บัญชี)/i;
+const LABEL_TO = /^(ไปยัง|ถึง|ผู้รับ|to\b)/i;
+const LABEL_FROM = /^(จาก|ผู้โอน|from\b)/i;
+function afterLabel(lines, i, re) { const rest = lines[i].replace(re, "").replace(/^[\s:]+/, "").trim(); return rest.length > 2 ? rest : (lines[i + 1] || ""); }
+const cleanName = s => (s || "").replace(/[^฀-๿A-Za-z0-9 .\-&()]/g, "").replace(/\s+/g, " ").trim();
+function parseSlip(raw) {
+  const text = normalize(raw);
+  const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
+  const flat = lines.map(l => l.replace(/\s+/g, ""));
+  const out = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: false, incoming: false };
+  const all = flat.join("|");
+  if (/รหัสอ้างอิง|วันที่ทำรายการ|กรุงไทย/.test(all) && !/เลขที่รายการ/.test(all)) out.bank = "กรุงไทย";
+  else if (/เลขที่รายการ|กสิกร/.test(all)) out.bank = "กสิกร";
+  if (/รับเงิน|ได้รับ|เงินเข้า/.test(flat.slice(0, 4).join("|"))) out.incoming = true;
+
+  for (let i = 0; i < lines.length && out.amount == null; i++) {
+    if (/จำนวน|amount/i.test(flat[i]) && !/ธรรมเนียม/.test(flat[i])) {
+      for (let j = i; j <= i + 2 && j < lines.length; j++) {
+        if (j > i && /ธรรมเนียม/.test(flat[j])) break;
+        const v = parseMoney(j === i ? lines[j].replace(/^.*?(จ\S*น\S*|amount)/i, "") : lines[j]);
+        if (v != null) { out.amount = v; break; }
+      }
+    }
+  }
+  if (out.amount == null) {
+    let best = null;
+    lines.forEach((l, i) => {
+      if (/ธรรมเนียม|คงเหลือ|อ้างอิง|รายการ/.test(flat[i])) return;
+      const v = parseMoney(l); if (v != null && (best == null || v > best)) best = v;
+    });
+    out.amount = best; out.check = true;
+  }
+  for (let i = 0; i < lines.length; i++) if (/ธรรมเนียม/.test(flat[i]) || /\bfee\b/i.test(lines[i])) {
+    const v = parseMoney(lines[i]) ?? (lines[i + 1] ? parseMoney(lines[i + 1]) : null);
+    if (v != null && v !== out.amount) out.fee = v; break;
+  }
+  const d = findDate(text);
+  if (d) out.date = d.iso;
+  const tAfter = d ? text.slice(d.at) : text;
+  const t = tAfter.match(/\b([01]?\d|2[0-3])\s?:\s?([0-5]\d)\b/) || text.match(/\b([01]?\d|2[0-3])\s?:\s?([0-5]\d)\b/);
+  if (t) out.time = `${pad(+t[1])}:${t[2]}`;
+  for (let i = 0; i < lines.length; i++) if (/เลขที่รายการ|อ้างอิง/.test(flat[i]) || /\bref\b/i.test(lines[i])) {
+    const pick = s => (s.replace(/^.*?(รายการ|อ้างอิง|ref\w*)\s*:?/i, "").match(/[A-Za-z0-9]{8,}/) || [])[0];
+    out.ref = pick(lines[i]) || (lines[i + 1] && (lines[i + 1].match(/[A-Za-z0-9]{8,}/) || [])[0]) || "";
+    break;
+  }
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (!out.to && LABEL_TO.test(lines[i])) out.to = afterLabel(lines, i, LABEL_TO);
+    else if (!out.from && LABEL_FROM.test(lines[i])) out.from = afterLabel(lines, i, LABEL_FROM);
+  }
+  if (!out.to || !out.from) {
+    const names = [];
+    for (let i = 1; i < lines.length; i++) if (BANK_LINE.test(flat[i]) && !BANK_LINE.test(flat[i - 1]) && /[ก-ฮA-Za-z]{2}/.test(lines[i - 1])) names.push(lines[i - 1]);
+    if (!out.from) out.from = names[0] || "";
+    if (!out.to) out.to = names[1] || "";
+  }
+  out.to = cleanName(out.to); out.from = cleanName(out.from);
+  if (!out.date || !out.amount) out.check = true;
+  return out;
+}
+
+/* ============ 5) เดาหมวด และแยกรายรับ/รายจ่าย ============ */
+const RULES = [
+  ["food",   /ร้าน|ข้าว|ก๋วยเตี๋ยว|อาหาร|กาแฟ|ชานม|ไก่|หมู|ส้มตำ|ขนม|cafe|coffee|food|7-?eleven|เซเว่น|lineman|ไลน์แมน|kfc|\bmk\b/i],
+  ["travel", /bts|mrt|grab|bolt|แท็กซี่|taxi|น้ำมัน|ปตท|ptt|บางจาก|shell|รถ|ทางด่วน|easy\s?pass/i],
+  ["bills",  /ไฟฟ้า|ประปา|เอไอเอส|ais|true|ทรู|dtac|ดีแทค|เน็ต|internet|หอพัก|ค่าเช่า|ประกัน|บัตรเครดิต/i],
+  ["shop",   /shopee|lazada|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s?c|บิ๊กซี|makro|แม็คโคร|uniqlo/i],
+  ["people", /^(นาย|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)|^(mr|mrs|ms|miss)\b/i],
+];
+const keyOf = s => (s || "").replace(/\s+/g, "").toLowerCase();
+const skel = s => (s || "").replace(/[^ก-ฮA-Za-z]/g, "").toLowerCase();
+function isMe(name) { const me = skel(state.settings.myName); return !!me && me.length >= 2 && skel(name).includes(me); }
+function guessCat(name, type) {
+  const k = type + ":" + keyOf(name);
+  if (keyOf(name) && state.catMap[k]) return state.catMap[k];
+  if (type === "in") return /^(นาย|นาง|น\.ส\.)/.test(name || "") ? "in-gift" : "in-other";
+  for (const [id, re] of RULES) if (re.test(name || "")) return id;
+  return "other";
+}
+function classify(p) {
+  const toMe = isMe(p.to), fromMe = isMe(p.from);
+  if (toMe && fromMe) return { type: "out", who: p.to, excluded: true, note: "โอนระหว่างบัญชีตัวเอง" };
+  if (toMe || (p.incoming && !fromMe)) return { type: "in", who: p.from || p.to, excluded: false, note: "" };
+  return { type: "out", who: p.to, excluded: false, note: "" };
+}
+
+/* ============ 6) อ่านรูปด้วย Tesseract (ทำในเครื่อง) ============ */
+let workerP = null;
+function getWorker() {
+  if (!workerP) {
+    const base = new URL("vendor/", document.baseURI).href;
+    workerP = Tesseract.createWorker(["tha", "eng"], 1, {
+      workerPath: base + "worker.min.js", corePath: base + "core/", langPath: base + "lang", workerBlobURL: false,
+    }).catch(e => { workerP = null; throw e; });
+  }
+  return workerP;
+}
+function loadImage(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => res({ img, url }); img.onerror = () => rej(new Error("เปิดรูปไม่ได้"));
+    img.src = url;
+  });
+}
+function toCanvas(img, targetW) {
+  const s = targetW / img.naturalWidth;
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+// รอบสอง: ขยายรูป ทำขาวดำ และเพิ่มความคม สำหรับรูปเล็กหรือภาพแคปจากแชต
+function enhanced(img) {
+  const c = toCanvas(img, Math.max(1600, Math.min(2200, img.naturalWidth * 2)));
+  const ctx = c.getContext("2d"); const d = ctx.getImageData(0, 0, c.width, c.height); const px = d.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < px.length; i += 4) { const g = (px[i] * 299 + px[i + 1] * 587 + px[i + 2] * 114) / 1000 | 0; px[i] = g; hist[g]++; }
+  const n = px.length / 4; let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255; lo++) { acc += hist[lo]; if (acc > n * 0.02) break; }
+  acc = 0; for (; hi > 0; hi--) { acc += hist[hi]; if (acc > n * 0.02) break; }
+  const span = Math.max(1, hi - lo);
+  for (let i = 0; i < px.length; i += 4) { const v = Math.max(0, Math.min(255, (px[i] - lo) * 255 / span)); px[i] = px[i + 1] = px[i + 2] = v; }
+  ctx.putImageData(d, 0, 0);
+  return c;
+}
+function merge(a, b) {
+  const o = { ...a };
+  ["amount", "date", "time", "to", "from", "ref", "bank"].forEach(k => { if (!o[k] && b[k]) o[k] = b[k]; });
+  if (!o.fee && b.fee) o.fee = b.fee;
+  o.incoming = a.incoming || b.incoming;
+  o.check = !o.date || !o.amount || (a.check && b.check);
+  return o;
+}
+
+/* กันสลิปซ้ำ: ใบเดียวกันที่มาจากแอปธนาคารและจากภาพแคปไลน์ */
+function editDist(a, b) {
+  const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 99;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[n];
+}
+const refLike = (a, b) => !!(a && b && a.length >= 10 && b.length >= 10 && (a === b || editDist(a.toUpperCase(), b.toUpperCase()) <= 2));
+function findDup(p) {
+  return state.items.find(i => !i.sample && (
+    refLike(p.ref, i.ref) ||
+    (p.amount != null && i.amount === p.amount && p.date && i.date === p.date && p.time && i.time === p.time)));
+}
+function maybeDup(p) {   // ยอดเท่ากัน วันเดียวกัน แต่เวลาไม่ตรง/อ่านไม่ออก: ไม่ข้าม แค่เตือนให้ตรวจ
+  return state.items.find(i => !i.sample && p.amount != null && i.amount === p.amount && p.date && i.date === p.date);
+}
+
+async function handleFiles(files) {
+  files = [...files].filter(f => f.type.startsWith("image/") || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
+  if (!files.length) return;
+  const prog = $("prog"); prog.hidden = false; $("pick").disabled = true;
+  const setP = (txt, i) => { $("prog-text").textContent = txt; $("prog-num").textContent = i != null ? `${i}/${files.length}` : ""; $("prog-bar").style.width = i != null ? (i / files.length * 100) + "%" : "8%"; };
+  setP("กำลังเปิดตัวอ่านสลิป (ครั้งแรกโหลดประมาณ 8 MB)");
+  let worker = null;
+  try { worker = await getWorker(); $("err-note").hidden = true; }
+  catch (e) {
+    $("err-note").hidden = false;
+    $("err-note").innerHTML = "<b>เปิดตัวอ่านสลิปอัตโนมัติไม่ได้ในหน้านี้</b> สลิปที่เลือกจะถูกเพิ่มพร้อมรูปไว้ให้ แตะแต่ละรายการแล้วพิมพ์ยอดเอง";
+  }
+  if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
+
+  let added = 0, dup = 0, review = 0, maybeN = 0, firstYm = null;
+  for (let n = 0; n < files.length; n++) {
+    setP("กำลังอ่านสลิป", n);
+    try {
+      const { img, url } = await loadImage(files[n]);
+      const thumb = toCanvas(img, Math.min(360, img.naturalWidth)).toDataURL("image/jpeg", 0.6);
+      let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "";
+      if (worker) {
+        const r = await worker.recognize(toCanvas(img, Math.min(1600, Math.max(1000, img.naturalWidth))));
+        raw = r.data.text; p = parseSlip(raw);
+        if (!p.amount || !p.date || !p.to) {
+          setP("อ่านไม่ชัด กำลังอ่านซ้ำแบบปรับรูป", n);
+          const r2 = await worker.recognize(enhanced(img));
+          p = merge(p, parseSlip(r2.data.text));
+          raw += "\n----- รอบสอง -----\n" + r2.data.text;
+        }
+      }
+      URL.revokeObjectURL(url);
+      const c = classify(p);
+      if (findDup(p)) { dup++; continue; }
+      const maybe = maybeDup(p);
+      const item = { id: uid(), date: p.date || todayISO(), time: p.time, amount: p.amount || 0, fee: p.fee || 0,
+        to: c.who, from: p.from, type: c.type, excluded: c.excluded, cat: c.excluded ? "other" : guessCat(c.who, c.type),
+        bank: p.bank, ref: p.ref, note: c.note, thumb, check: p.check, sample: false, raw: raw.slice(0, 3000) };
+      if (maybe) { item.check = true; item.note = (item.note ? item.note + " · " : "") + "อาจซ้ำกับรายการเดิม"; maybeN++; }
+      if (item.type === "in" && !item.excluded) {
+        buildRefunds();
+        const t0 = Date.parse(item.date);
+        const cand = state.items.filter(x => owed(x) >= item.amount - 0.01 && x.date <= item.date && (t0 - Date.parse(x.date)) <= 14 * 864e5)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+        if (cand) { item.cat = "in-refund"; item.refundOf = cand.id; item.check = true; item.note = "เดาว่าเป็นเงินคืนค่าหาร: " + (cand.to || cand.note || "รายการ " + thaiDate(cand.date)); }
+      }
+      if (item.check) review++;
+      state.items.push(item); added++;
+      firstYm = firstYm || ymKey(item.date);
+      save(); render();
+    } catch (e) { review++; }
+  }
+  setP("เสร็จแล้ว", files.length);
+  setTimeout(() => { prog.hidden = true; }, 900);
+  $("pick").disabled = false;
+  if (firstYm) curYm = firstYm;
+  render();
+  toast(`เพิ่ม ${added} สลิป` + (dup ? ` · ข้ามที่ซ้ำ ${dup}` : "") + (maybeN ? ` · อาจซ้ำ ${maybeN}` : "") + (review ? ` · ควรตรวจ ${review}` : ""));
+}
+
+/* ============ 7) แสดงผล ============ */
+let curYm = null, catFilter = null, listType = "all", query = "", owedOnly = false;
+function months() { return [...new Set(state.items.map(i => ymKey(i.date)))].sort(); }
+function deltaHtml(now, before, invert) {
+  if (!before) return "";
+  const pct = Math.round((now - before) / before * 100);
+  if (!pct) return `<span class="delta">เท่าเดือนก่อน</span>`;
+  const up = pct > 0, good = invert ? up : !up;
+  return `<span class="delta ${good ? "down" : "up"}">${up ? "▲" : "▼"} ${Math.abs(pct)}%</span>`;
+}
+function render() {
+  buildRefunds();
+  const ms = months();
+  if (!curYm) curYm = ms[ms.length - 1] || todayISO().slice(0, 7);
+  $("month-label").textContent = thaiMonth(curYm);
+  $("prev").disabled = !ms.some(m => m < curYm);
+  $("next").disabled = !ms.some(m => m > curYm);
+  $("sample-note").hidden = !state.items.some(i => i.sample);
+
+  const items = state.items.filter(i => ymKey(i.date) === curYm);
+  const prevItems = state.items.filter(i => ymKey(i.date) === prevYm(curYm));
+  const outs = items.filter(isOut), ins = items.filter(isIn);
+  const spent = sum(outs), income = sum(ins), net = income - spent;
+  const prevSpent = sum(prevItems.filter(isOut));
+  const owedN = items.filter(i => owed(i) > 0), owedSum = owedN.reduce((s, i) => s + owed(i), 0);
+  const [w, c] = fmt(spent).split(".");
+  $("total").innerHTML = `<span class="cur">฿</span>${w}<small>.${c}</small>`;
+  const isNow = curYm === todayISO().slice(0, 7);
+  const days = isNow ? new Date().getDate() : daysIn(curYm);
+  const dl = deltaHtml(spent, prevSpent, false);
+  $("sub").innerHTML = `<span>${outs.length} รายการ · เฉลี่ยวันละ ฿${fmt0(spent / days)}</span>` + (dl ? `<span>${dl} จากเดือนก่อน</span>` : "")
+    + (owedSum > 0 ? `<button class="linkbtn" id="owed-btn">รอเพื่อนคืน ฿${fmt0(owedSum)} (${owedN.length} รายการ) ›</button>` : "");
+  if ($("owed-btn")) $("owed-btn").onclick = () => { owedOnly = true; catFilter = null; listType = "all"; render(); $("list-title").scrollIntoView({ behavior: "smooth", block: "start" }); };
+  $("s-in").textContent = "฿" + fmt0(income);
+  $("s-net").textContent = (net < 0 ? "−฿" : "฿") + fmt0(Math.abs(net));
+  $("s-net").className = net < 0 ? "neg" : "";
+  $("s-save").textContent = income > 0 ? (net < 0 ? "ติดลบ" : Math.round(net / income * 100) + "%") : "–";
+  $("s-save").className = income > 0 ? (net < 0 ? "neg" : "pos") : "";
+  renderBudget(spent, isNow);
+
+  const byCat = CATS_OUT.map(ct => ({ ...ct, sum: sum(outs.filter(i => i.cat === ct.id)), prev: sum(prevItems.filter(i => isOut(i) && i.cat === ct.id)) }));
+  renderDaily(outs);
+  renderCats(byCat, spent);
+  renderTop(outs);
+  renderList(items);
+}
+
+function renderBudget(spent, isNow) {
+  const b = +state.settings.budget || 0, box = $("budget");
+  if (!b) { box.innerHTML = `<p class="budget-msg" style="color:var(--muted)">ยังไม่ได้ตั้งงบรายเดือน</p><button class="linkbtn" id="set-budget">+ ตั้งงบ ให้แอปบอกว่าใช้ได้วันละเท่าไหร่</button>`; $("set-budget").onclick = openSettings; return; }
+  const pct = spent / b * 100, left = b - spent;
+  const cls = pct >= 100 ? "over" : pct >= 80 ? "warn" : "";
+  let on = Math.min(20, Math.round(pct / 5)); if (pct > 0 && on === 0) on = 1;
+  const blocks = Array.from({ length: 20 }, (_, k) => `<i${k < on ? ' class="on"' : ""}></i>`).join("");
+  let msg;
+  if (left < 0) msg = `<p class="budget-msg over">เกินงบแล้ว <b>฿${fmt0(-left)}</b></p>`;
+  else if (isNow) {
+    const remainDays = daysIn(curYm) - new Date().getDate() + 1;
+    msg = `<p class="budget-msg">ใช้ได้อีกวันละ <b class="acc">฿${fmt0(left / remainDays)}</b> · เหลือ <b>฿${fmt0(left)}</b> อีก ${remainDays} วัน</p>`;
+  } else msg = `<p class="budget-msg">อยู่ในงบ เหลือ <b>฿${fmt0(left)}</b></p>`;
+  box.innerHTML = `<div class="budget-top"><span>฿${fmt0(spent)} / <b>฿${fmt0(b)}</b></span><span>ใช้ไป <b>${Math.round(pct)}%</b></span></div>
+    <div class="blocks ${cls}" role="img" aria-label="ใช้ไป ${Math.round(pct)}% ของงบ">${blocks}</div>${msg}`;
+}
+
+function renderDaily(outs) {
+  const box = $("daily-chart");
+  const W = Math.max(280, box.clientWidth || 320), H = 150, padL = 4, padB = 22, padT = 8;
+  const n = daysIn(curYm);
+  const per = Array.from({ length: n }, (_, d) => outs.filter(i => +i.date.slice(8) === d + 1));
+  const sums = per.map(a => sum(a));
+  const max = Math.max(...sums, 1), bestI = sums.indexOf(Math.max(...sums));
+  const slot = (W - padL * 2) / n, bw = Math.max(3, slot - 2);
+  const y = v => H - padB - (v / max) * (H - padB - padT);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดรายจ่ายรายวัน">`;
+  svg += `<line x1="0" x2="${W}" y1="${H - padB}" y2="${H - padB}" stroke="var(--line)" stroke-width="1"/>`;
+  const b = +state.settings.budget || 0;
+  if (b) { const dailyB = b / n; if (dailyB < max) svg += `<line x1="0" x2="${W}" y1="${y(dailyB)}" y2="${y(dailyB)}" stroke="var(--muted)" stroke-dasharray="3 4" stroke-width="1"/><text x="${W - 2}" y="${y(dailyB) - 4}" font-size="10.5" text-anchor="end" fill="var(--muted)">งบต่อวัน</text>`; }
+  sums.forEach((v, d) => {
+    const x = padL + d * slot + (slot - bw) / 2;
+    if (v > 0) {
+      const top = y(v), h = H - padB - top, r = Math.min(4, bw / 2, h);
+      svg += `<path d="M${x},${H - padB} V${top + r} q0,-${r} ${r},-${r} H${x + bw - r} q${r},0 ${r},${r} V${H - padB} Z" fill="${d === bestI ? "var(--accent)" : "#e9e9e9"}"/>`;
+    }
+    svg += `<rect class="b" data-d="${d}" x="${padL + d * slot}" y="0" width="${slot}" height="${H}" fill="transparent"/>`;
+  });
+  [1, 8, 15, 22, n].forEach(d => {
+    const x = padL + (d - 0.5) * slot;
+    svg += `<text x="${x}" y="${H - 6}" font-size="11" text-anchor="middle" fill="var(--muted)" font-family="Silkscreen, monospace">${d}</text>`;
+  });
+  svg += `</svg>`;
+  box.innerHTML = svg;
+  const show = d => { $("readout").innerHTML = `${thaiDate(`${curYm}-${pad(d + 1)}`)} · <b>฿${fmt(sums[d])}</b> · ${per[d].length} รายการ`; };
+  box.querySelectorAll(".b").forEach(r => { r.addEventListener("mouseenter", () => show(+r.dataset.d)); r.addEventListener("click", () => show(+r.dataset.d)); });
+  const best = sums.indexOf(Math.max(...sums));
+  if (sums[best] > 0) $("readout").innerHTML = `วันที่จ่ายเยอะสุด ${thaiDate(`${curYm}-${pad(best + 1)}`)} · <b>฿${fmt(sums[best])}</b>`;
+  else $("readout").textContent = "ยังไม่มีรายจ่ายในเดือนนี้";
+}
+
+function renderCats(byCat, total) {
+  $("cats").innerHTML = [...byCat].sort((a, b) => b.sum - a.sum).map(c => {
+    let d = "";
+    if (c.prev > 0) { const p = Math.round((c.sum - c.prev) / c.prev * 100); if (p) d = `<span class="dl ${p > 0 ? "up" : "down"}">${p > 0 ? "▲" : "▼"}${Math.abs(p)}%</span>`; }
+    const pct = total ? Math.round(c.sum / total * 100) : 0;
+    return `<button class="cat-card${c.sum ? "" : " zero"}" data-cat="${c.id}" aria-pressed="${catFilter === c.id}" style="background:color-mix(in srgb, ${c.color} 24%, #0d0d0d)">
+      <span class="top"><span class="pct">${pct}%</span>${d}</span>
+      <span><span class="nm" style="display:block;color:color-mix(in srgb, ${c.color} 40%, #ffffff)">${c.name}</span><span class="am">${fmt0(c.sum)}</span></span>
+    </button>`; }).join("");
+  $("cats").querySelectorAll(".cat-card").forEach(b => b.onclick = () => {
+    catFilter = catFilter === b.dataset.cat ? null : b.dataset.cat;
+    if (catFilter) listType = "out";
+    render();
+    if (catFilter) $("list-title").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function renderTop(outs) {
+  const m = new Map();
+  outs.forEach(i => { const k = keyOf(i.to) || "?"; const e = m.get(k) || { name: i.to || "ไม่ทราบผู้รับ", n: 0, s: 0 }; e.n++; e.s += eff(i); m.set(k, e); });
+  const top = [...m.values()].sort((a, b) => b.s - a.s).slice(0, 5);
+  $("top-sec").hidden = !top.length;
+  $("top").innerHTML = top.map((t, i) => `<div class="top-row"><span class="rk">${i + 1}</span><span style="min-width:0"><strong>${esc(t.name)}</strong><span class="n">${t.n} ครั้ง</span></span><span class="amt">฿${fmt0(t.s)}</span></div>`).join("");
+}
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+function renderList(items) {
+  let list = items;
+  if (listType !== "all") list = list.filter(i => (i.type || "out") === listType);
+  if (catFilter) list = list.filter(i => i.cat === catFilter);
+  if (owedOnly) list = list.filter(i => owed(i) > 0);
+  if (query) { const q = keyOf(query); list = list.filter(i => keyOf(i.to + i.note + i.from).includes(q)); }
+  $("list-title").textContent = owedOnly ? "รายการที่รอเพื่อนคืน" : catFilter ? `รายการหมวด${CAT[catFilter].name}` : "รายการทั้งหมด";
+  $("clear-filter").hidden = !catFilter && !owedOnly;
+  $("clear-filter").textContent = owedOnly ? "ดูทุกรายการ" : "ดูทุกหมวด";
+  $("seg").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === listType));
+  if (!list.length) { $("list").innerHTML = `<div class="empty">${items.length ? "ไม่พบรายการที่ตรงกับตัวกรอง" : "ยังไม่มีรายการ แตะ “เลือกสลิป” แล้วเลือกรูปสลิปจากแกลเลอรีได้ทีละหลายรูป"}</div>`; return; }
+  const byDay = {};
+  [...list].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).forEach(i => (byDay[i.date] ||= []).push(i));
+  $("list").innerHTML = Object.entries(byDay).map(([d, arr]) => {
+    const o = sum(arr.filter(isOut)), n = sum(arr.filter(isIn));
+    return `<div class="day">
+      <div class="day-h"><span>${thaiDate(d)}</span><span>${n ? `+${fmt(n)} ` : ""}${o ? `−${fmt(o)}` : ""}</span></div>
+      <div class="rows">${arr.map(i => {
+        const inn = i.type === "in", rf = isRefund(i);
+        const name = i.to || i.note || (inn ? "ไม่ทราบผู้โอน" : "ไม่ทราบผู้รับ");
+        const back = refunded(i), ow = owed(i);
+        const tags = (i.excluded ? '<span class="flag ex">ไม่นับ</span>' : "")
+          + (rf ? '<span class="flag in">เงินคืน</span>' : "")
+          + (!inn && hasMine(i) ? `<span class="flag sp">ส่วนเรา ${fmt0(i.mine)} จาก ${fmt0(i.amount)}</span>` : !inn && i.split > 1 ? `<span class="flag sp">หาร ${i.split} จาก ${fmt0(i.amount)}</span>` : "")
+          + (!inn && back > 0 && !hasSplit(i) ? `<span class="flag sp">คืนแล้ว ${fmt0(back)}</span>` : "")
+          + (ow > 0 ? `<span class="flag">รอคืน ${fmt0(ow)}</span>` : "")
+          + (i.check ? '<span class="flag">ควรตรวจ</span>' : "");
+        return `<button class="row${inn && !rf ? " in" : ""}${rf ? " rf" : ""}${i.excluded ? " ex" : ""}" data-id="${i.id}">
+          <span class="dot" style="background:${CAT[i.cat].color}"></span>
+          <span class="who"><strong>${inn ? "จาก " : ""}${esc(name)}</strong>
+            <span>${i.time || "--:--"} · ${CAT[i.cat].name}${i.bank ? " · " + i.bank : ""}${tags}</span></span>
+          <span class="amt">${inn ? "+" : "−"}${fmt(inn ? i.amount : eff(i))}</span>
+        </button>`; }).join("")}</div>
+    </div>`; }).join("");
+  $("list").querySelectorAll(".row").forEach(b => b.onclick = () => openSheet(b.dataset.id));
+}
+
+/* ============ 8) หน้าต่างแก้ไข และตั้งค่า ============ */
+let editId = null, editCat = "food", editType = "out", editRefundOf = "";
+function openSheet(id) {
+  const it = id ? state.items.find(i => i.id === id) : null;
+  editId = id || null;
+  $("sheet-title").textContent = it ? "แก้ไขรายการ" : "เพิ่มรายการเอง";
+  $("f-amount").value = it ? fmt(it.amount).replace(/,/g, "") : "";
+  $("f-date").value = it ? it.date : todayISO();
+  $("f-time").value = it ? it.time : "";
+  $("f-to").value = it ? it.to : "";
+  $("f-note").value = it ? it.note : "";
+  $("f-ex").checked = !!(it && it.excluded);
+  $("f-thumb").hidden = !(it && it.thumb); if (it && it.thumb) { $("f-thumb").src = it.thumb; $("f-thumb").classList.remove("big"); }
+  $("f-del").hidden = !it;
+  $("f-raw").hidden = !(it && it.raw); $("f-raw").open = false; $("f-raw-text").textContent = it && it.raw ? it.raw : "";
+  editType = it ? (it.type || "out") : "out";
+  editCat = it ? it.cat : "food";
+  $("f-split").value = it && it.split > 1 ? it.split : 1;
+  $("f-mine").value = it && it.mine > 0 ? it.mine : "";
+  editRefundOf = it ? (it.refundOf || "") : "";
+  drawType(); drawChips();
+  $("sheet").hidden = false;
+}
+function syncExtra() {
+  $("split-box").hidden = editType !== "out";
+  const showRf = editType === "in" && editCat === "in-refund";
+  $("refund-box").hidden = !showRf;
+  if (showRf) {
+    const d0 = $("f-date").value || todayISO(), t0 = Date.parse(d0);
+    const opts = state.items.filter(x => isOut(x) && !x.sample && x.date <= d0 && (t0 - Date.parse(x.date)) <= 60 * 864e5)
+      .sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+    if (!editRefundOf) { const best = opts.find(x => owed(x) > 0) || opts[0]; editRefundOf = best ? best.id : ""; }
+    $("f-refund-of").innerHTML = `<option value="">— เลือกรายการที่เพื่อนคืน —</option>` + opts.map(x =>
+      `<option value="${x.id}"${x.id === editRefundOf ? " selected" : ""}>${thaiDate(x.date)} · ${esc(x.to || x.note || "ไม่ทราบผู้รับ")} · ฿${fmt(x.amount)}${owed(x) > 0 ? ` (รอคืน ฿${fmt0(owed(x))})` : ""}</option>`).join("");
+  }
+  splitInfo();
+}
+const num = v => parseFloat(String(v || "").replace(/[^\d.]/g, "")) || 0;
+function formShare() {   // ส่วนของเราตามที่กรอกในฟอร์ม
+  const a = num($("f-amount").value), n = Math.max(1, parseInt($("f-split").value) || 1), m = num($("f-mine").value);
+  if (m > 0 && m < a) return { a, mine: m, n: 1, set: true };
+  if (n > 1 && a) return { a, mine: a / n, n, set: true };
+  return { a, mine: a, n: 1, set: false };
+}
+function splitInfo() {
+  const f = formShare(), it = editId ? state.items.find(i => i.id === editId) : null, back = it ? refunded(it) : 0;
+  $("repay-box").hidden = true;
+  if (!f.set || !f.a) { $("split-info").textContent = "ถ้าจ่ายแทนเพื่อนไปก่อน ใส่จำนวนคนที่หารเท่ากัน หรือใส่ส่วนของเราเองถ้าแต่ละคนกินไม่เท่ากัน แอปจะนับเฉพาะส่วนของเรา"; return; }
+  const wait = Math.max(0, f.a - f.mine - back);
+  $("split-info").innerHTML = `ส่วนของเรา <b>฿${fmt(f.mine)}</b> · ${wait > 0 ? `รอเพื่อนคืน <b>฿${fmt(wait)}</b>` : "เพื่อนคืนครบแล้ว"}${back ? ` (คืนแล้ว ฿${fmt(back)})` : ""}`;
+  if (it && wait > 0) { $("repay-box").hidden = false; $("f-repay").value = String(Math.round(wait * 100) / 100); }
+}
+$("f-amount").addEventListener("input", splitInfo);
+$("f-split").addEventListener("input", () => { if ((parseInt($("f-split").value) || 1) > 1) $("f-mine").value = ""; splitInfo(); });
+$("f-mine").addEventListener("input", () => { if (num($("f-mine").value) > 0) $("f-split").value = 1; splitInfo(); });
+// เพื่อนคืนแล้วแต่ไม่มีสลิป: บันทึกเงินคืนจากหน้านี้ได้เลย
+$("f-repay-btn").onclick = () => {
+  const it = state.items.find(i => i.id === editId); if (!it) return;
+  const v = num($("f-repay").value); if (v <= 0) { toast("ใส่ยอดที่เพื่อนคืนก่อนนะ"); return; }
+  const f = formShare();
+  it.split = f.n; it.mine = f.n > 1 ? 0 : (f.set ? f.mine : 0);
+  state.items.push({ id: uid(), date: todayISO(), time: "", amount: Math.round(v * 100) / 100, fee: 0, to: "เพื่อน", from: "", cat: "in-refund", type: "in", excluded: false, refundOf: it.id, bank: "", ref: "", note: "คืนค่า " + (it.to || it.note || "") + " · ไม่มีสลิป", thumb: "", raw: "", check: false, sample: false });
+  save(); render(); openSheet(it.id); toast(`บันทึกเงินคืน ฿${fmt(v)} แล้ว`);
+};
+$("f-refund-of").addEventListener("change", e => { editRefundOf = e.target.value; });
+function drawType() {
+  $("f-type").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === editType));
+  $("f-to-label").textContent = editType === "in" ? "ได้รับจากใคร" : "จ่ายให้ใคร / ร้านไหน";
+}
+function drawChips() {
+  const set = editType === "in" ? CATS_IN : CATS_OUT;
+  if (!set.some(c => c.id === editCat)) editCat = set[0].id;
+  $("f-cats").innerHTML = set.map(c => `<button type="button" class="chip" data-c="${c.id}" aria-pressed="${c.id === editCat}"><span class="dot" style="background:${c.color}"></span>${c.name}</button>`).join("");
+  $("f-cats").querySelectorAll(".chip").forEach(b => b.onclick = () => { editCat = b.dataset.c; drawChips(); });
+  syncExtra();
+}
+$("f-type").querySelectorAll("button").forEach(b => b.onclick = () => { editType = b.dataset.t; drawType(); drawChips(); });
+function closeSheet() { $("sheet").hidden = true; editId = null; }
+$("sheet-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const amount = parseFloat(($("f-amount").value || "").replace(/[^\d.]/g, ""));
+  if (!isFinite(amount) || amount <= 0) { $("f-amount").focus(); toast("ใส่จำนวนเงินก่อนนะ"); return; }
+  const date = $("f-date").value || todayISO();
+  const data = { amount: Math.round(amount * 100) / 100, date, time: $("f-time").value, to: $("f-to").value.trim(), note: $("f-note").value.trim(), cat: editCat, type: editType, excluded: $("f-ex").checked, check: false,
+    split: editType === "out" ? formShare().n : 1,
+    mine: editType === "out" && formShare().set && formShare().n === 1 ? formShare().mine : 0,
+    refundOf: editType === "in" && editCat === "in-refund" ? $("f-refund-of").value : "" };
+  if (editType === "in" && editCat === "in-refund" && !data.refundOf) { toast("เลือกก่อนว่าเพื่อนคืนค่าอะไร"); return; }
+  if (editId) Object.assign(state.items.find(i => i.id === editId), data);
+  else {
+    if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
+    state.items.push({ id: uid(), fee: 0, from: "", bank: "", ref: "", thumb: "", raw: "", sample: false, ...data });
+  }
+  if (data.to && !data.excluded && editCat !== "in-refund") state.catMap[data.type + ":" + keyOf(data.to)] = editCat;
+  curYm = ymKey(date); save(); closeSheet(); render(); toast("บันทึกแล้ว");
+});
+$("f-cancel").onclick = closeSheet;
+$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) closeSheet(); });
+$("f-thumb").onclick = () => $("f-thumb").classList.toggle("big");
+$("f-raw-copy").onclick = async () => {
+  try { await navigator.clipboard.writeText($("f-raw-text").textContent); toast("คัดลอกแล้ว"); }
+  catch (e) { const s = getSelection(), rg = document.createRange(); rg.selectNodeContents($("f-raw-text")); s.removeAllRanges(); s.addRange(rg); toast("กดค้างที่ข้อความแล้วเลือกคัดลอก"); }
+};
+let delArm = 0;
+$("f-del").onclick = () => {
+  if (Date.now() - delArm > 3000) { delArm = Date.now(); $("f-del").textContent = "แตะอีกครั้งเพื่อลบ"; setTimeout(() => $("f-del").textContent = "ลบรายการ", 3000); return; }
+  state.items = state.items.filter(i => i.id !== editId); save(); closeSheet(); render(); toast("ลบแล้ว");
+};
+
+function openSettings() {
+  $("s-budget").value = state.settings.budget ? String(state.settings.budget) : "";
+  $("s-name").value = state.settings.myName || "";
+  $("settings").hidden = false;
+}
+$("open-settings").onclick = openSettings;
+$("s-cancel").onclick = () => $("settings").hidden = true;
+$("settings").addEventListener("click", e => { if (e.target === $("settings")) $("settings").hidden = true; });
+$("settings-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const b = parseFloat(($("s-budget").value || "").replace(/[^\d.]/g, ""));
+  state.settings.budget = isFinite(b) && b > 0 ? Math.round(b) : 0;
+  state.settings.myName = $("s-name").value.trim();
+  save(); $("settings").hidden = true; render(); toast("บันทึกการตั้งค่าแล้ว");
+});
+
+/* ============ 9) CSV: ส่งออก สำรอง นำเข้า ============ */
+const HEAD = ["วันที่", "เวลา", "ประเภท", "จำนวนเงิน", "ค่าธรรมเนียม", "ผู้รับ/ผู้โอน", "หมวด", "นับในยอด", "ธนาคาร", "เลขอ้างอิง", "บันทึก", "หารกี่คน", "ส่วนของเรา", "รหัส", "คืนค่าของรหัส", "ส่วนของเรา(กำหนดเอง)"];
+function toCsv(rows) {
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
+  const body = rows.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .map(i => [i.date, i.time, i.type === "in" ? "รายรับ" : "รายจ่าย", i.amount.toFixed(2), (i.fee || 0).toFixed(2), i.to, CAT[i.cat].name, i.excluded ? "ไม่นับ" : "นับ", i.bank, i.ref, i.note, i.split || 1, eff(i).toFixed(2), i.id, i.refundOf || "", i.mine > 0 ? i.mine.toFixed(2) : ""].map(q).join(","));
+  return [HEAD.join(","), ...body].join("\r\n");
+}
+async function saveFile(name, text) {
+  const blob = new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" });
+  const dl = window.claude && window.claude.use ? await window.claude.use("downloads").catch(() => null) : null;
+  if (dl) {
+    try { await dl.save({ filename: name, data: blob }); toast("บันทึกไฟล์แล้ว"); }
+    catch (e) { if (e && e.code !== "declined") toast("ดาวน์โหลดไม่ได้ ใช้ปุ่ม “คัดลอกเป็นตาราง” แทน"); }
+    return;
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+const realItems = () => state.items.filter(i => !i.sample);
+$("dl-csv").onclick = () => {
+  const rows = realItems().filter(i => ymKey(i.date) === curYm);
+  if (!rows.length) return toast("เดือนนี้ยังไม่มีรายการจริง");
+  saveFile(`slipsum-${curYm}.csv`, toCsv(rows));
+};
+$("backup").onclick = () => {
+  const rows = realItems();
+  if (!rows.length) return toast("ยังไม่มีข้อมูลจริงให้สำรอง");
+  saveFile(`slipsum-backup-${todayISO()}.csv`, toCsv(rows));
+};
+$("copy-csv").onclick = async () => {
+  const rows = realItems().filter(i => ymKey(i.date) === curYm);
+  if (!rows.length) return toast("เดือนนี้ยังไม่มีรายการจริง");
+  const tsv = parseCsv(toCsv(rows)).map(r => r.join("\t")).join("\n");
+  try { await navigator.clipboard.writeText(tsv); toast(`คัดลอก ${rows.length} รายการแล้ว วางใน Excel ได้เลย`); }
+  catch (e) { toast("คัดลอกไม่ได้ในหน้านี้ ลองดาวน์โหลด CSV แทน"); }
+};
+function parseCsv(text) {
+  const rows = []; let row = [], cell = "", q = false;
+  text = text.replace(/^﻿/, "");
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n") { row.push(cell.replace(/\r$/, "")); rows.push(row); row = []; cell = ""; }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell.replace(/\r$/, "")); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim()));
+}
+function importCsv(text) {
+  const rows = parseCsv(text); if (rows.length < 2) return toast("ไฟล์นี้ไม่มีข้อมูล");
+  const h = rows[0].map(s => s.trim()); const col = name => h.indexOf(name);
+  const ci = { d: col("วันที่"), t: col("เวลา"), ty: col("ประเภท"), a: col("จำนวนเงิน"), f: col("ค่าธรรมเนียม"), w: Math.max(col("ผู้รับ/ผู้โอน"), col("ผู้รับ")), c: col("หมวด"), x: col("นับในยอด"), b: col("ธนาคาร"), r: col("เลขอ้างอิง"), n: col("บันทึก"), sp: col("หารกี่คน"), id: col("รหัส"), rf: col("คืนค่าของรหัส"), mi: col("ส่วนของเรา(กำหนดเอง)") };
+  if (ci.d < 0 || ci.a < 0) return toast("ไฟล์นี้ไม่ใช่ CSV จาก SLIP฿SUM");
+  if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
+  let added = 0, dup = 0;
+  rows.slice(1).forEach(r => {
+    const g = k => ci[k] >= 0 ? (r[ci[k]] || "").trim() : "";
+    const date = g("d"), amount = parseFloat(g("a").replace(/[^\d.]/g, ""));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isFinite(amount)) return;
+    const type = g("ty") === "รายรับ" ? "in" : "out";
+    const set = type === "in" ? CATS_IN : CATS_OUT;
+    const cat = (set.find(c => c.name === g("c")) || set[set.length - 1]).id;
+    const gid = g("id");
+    const it = { id: gid && !state.items.some(i => i.id === gid) ? gid : uid(), date, time: g("t"), type, amount, fee: parseFloat(g("f")) || 0, to: g("w"), from: "", cat, excluded: g("x") === "ไม่นับ", bank: g("b"), ref: g("r"), note: g("n"), split: Math.max(1, parseInt(g("sp")) || 1), mine: parseFloat(g("mi")) || 0, refundOf: g("rf"), thumb: "", raw: "", check: false, sample: false };
+    if (state.items.some(i => (it.ref && i.ref === it.ref) || (i.date === it.date && i.time === it.time && i.amount === it.amount && keyOf(i.to) === keyOf(it.to)))) { dup++; return; }
+    state.items.push(it); added++;
+  });
+  save(); curYm = null; render();
+  toast(`นำเข้า ${added} รายการ` + (dup ? ` · ข้ามที่มีอยู่แล้ว ${dup}` : ""));
+}
+$("import").onclick = () => $("import-file").click();
+$("import-file").onchange = e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  const rd = new FileReader(); rd.onload = () => importCsv(String(rd.result)); rd.onerror = () => toast("เปิดไฟล์ไม่ได้"); rd.readAsText(f, "utf-8");
+};
+let wipeArm = 0;
+$("wipe").onclick = () => {
+  if (Date.now() - wipeArm > 3000) { wipeArm = Date.now(); $("wipe").textContent = "แตะอีกครั้งเพื่อลบทั้งหมด"; setTimeout(() => $("wipe").textContent = "ลบข้อมูลทั้งหมด", 3000); return; }
+  state.items = []; state.catMap = {}; save(); curYm = null; catFilter = null; render(); toast("ลบข้อมูลทั้งหมดแล้ว");
+};
+
+/* ============ 10) ปุ่มอื่นๆ ตัวอย่าง และทดสอบตัวอ่าน ============ */
+$("pick").onclick = () => $("file").click();
+$("file").onchange = e => { handleFiles(e.target.files); e.target.value = ""; };
+$("add-manual").onclick = () => openSheet(null);
+$("prev").onclick = () => { const ms = months().filter(m => m < curYm); if (ms.length) { curYm = ms[ms.length - 1]; render(); } };
+$("next").onclick = () => { const ms = months().filter(m => m > curYm); if (ms.length) { curYm = ms[0]; render(); } };
+$("clear-filter").onclick = () => { catFilter = null; owedOnly = false; render(); };
+$("seg").querySelectorAll("button").forEach(b => b.onclick = () => { listType = b.dataset.t; if (listType === "in") catFilter = null; render(); });
+$("search").addEventListener("input", e => { query = e.target.value; render(); });
+let toastT;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(render, 150); });
+
+function seedSamples() {
+  const ym = todayISO().slice(0, 7), last = new Date().getDate();
+  const day = d => `${ym}-${pad(Math.max(1, Math.min(last, d)))}`;
+  const ex = [
+    [1, "07:45", 850.5, "การไฟฟ้าส่วนภูมิภาค", "bills", "out"], [1, "09:00", 6000, "ค่าจ้างพิเศษ", "in-work", "in"],
+    [2, "12:10", 65, "ร้านข้าวมันไก่ป้านิด", "food", "out"], [3, "08:20", 42, "BTS", "travel", "out"],
+    [5, "19:42", 599, "บจก. เอไอเอส", "bills", "out"], [7, "18:05", 120, "ร้านก๋วยเตี๋ยวเรือ", "food", "out"],
+    [9, "21:30", 459, "Shopee", "shop", "out"], [10, "14:00", 1500, "นาย สมชาย ใจดี", "in-gift", "in"],
+    [12, "12:18", 89, "น.ส. มาลี ดีงาม", "people", "out"], [14, "10:02", 300, "ปตท. สาขาลาดกระบัง", "travel", "out"],
+    [16, "16:16", 1250, "นาง สมศรี ใจดี", "people", "out"], [18, "08:40", 55, "ร้านกาแฟหน้าคณะ", "food", "out"],
+  ];
+  state.items = ex.map(([d, t, a, to, c, ty]) => ({ id: uid(), date: day(d), time: t, amount: a, fee: 0, to, from: "", cat: c, type: ty, excluded: false, bank: "", ref: "", note: "", thumb: "", raw: "", check: false, sample: true }));
+  const mk = { id: uid(), date: day(11), time: "19:30", amount: 900, fee: 0, to: "ร้านหมูกระทะ", from: "", cat: "food", type: "out", excluded: false, split: 3, bank: "", ref: "", note: "หาร 3 คน", thumb: "", raw: "", check: false, sample: true };
+  state.items.push(mk, { id: uid(), date: day(12), time: "08:15", amount: 300, fee: 0, to: "นาย สมชาย ใจดี", from: "", cat: "in-refund", type: "in", excluded: false, refundOf: mk.id, bank: "", ref: "", note: "", thumb: "", raw: "", check: false, sample: true });
+  state.items.push({ id: uid(), date: day(4), time: "20:00", amount: 2000, fee: 0, to: "นาย ธนกร พ.", from: "", cat: "other", type: "out", excluded: true, bank: "", ref: "", note: "โอนระหว่างบัญชีตัวเอง", thumb: "", raw: "", check: false, sample: true });
+}
+
+async function selfTest() {
+  const note = $("selftest-out"); note.hidden = false; note.textContent = "กำลังทดสอบตัวอ่านสลิป…";
+  try {
+    const w = await getWorker();
+    const r = await w.recognize(new URL("vendor/test-slip.png", document.baseURI).href);
+    const p = parseSlip(r.data.text);
+    note.textContent = `ทดสอบผ่าน ✓ ${fmt(p.amount || 0)} บาท · ${p.date} ${p.time} · ${p.to}`;
+  } catch (e) { note.textContent = "ทดสอบไม่ผ่าน: " + (e && e.message ? e.message : String(e)); }
+}
+$("selftest").onclick = selfTest;
+
+load();
+if (!state.items.length) seedSamples();
+render();
+if (location.hash === "#selftest") selfTest();
+</script>
+
+</body>
+</html>
