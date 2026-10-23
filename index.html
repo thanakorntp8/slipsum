@@ -553,7 +553,7 @@ const BANK_LINE = /^(ธ\.|ธนาคาร|พร้อมเพย์|prompt
 const LABEL_TO = /^(ไปยัง|ถึง|ผู้รับ|to\b)/i;
 const LABEL_FROM = /^(จาก|ผู้โอน|from\b)/i;
 function afterLabel(lines, i, re) { const rest = lines[i].replace(re, "").replace(/^[\s:]+/, "").trim(); return rest.length > 2 ? rest : (lines[i + 1] || ""); }
-const cleanName = s => (s || "").replace(/[^฀-๿A-Za-z0-9 .\-&()]/g, "").replace(/\s+/g, " ").trim();
+const cleanName = s => (s || "").replace(/[^฀-๿A-Za-z0-9 .\-&()]/g, "").replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
 function parseSlip(raw) {
   const text = normalize(raw);
   const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
@@ -576,7 +576,7 @@ function parseSlip(raw) {
   if (out.amount == null) {
     let best = null;
     lines.forEach((l, i) => {
-      if (/ธรรมเนียม|คงเหลือ|อ้างอิง|รายการ/.test(flat[i])) return;
+      if (/ธรรมเนียม|คงเหลือ|ใช้ได้|อ้างอิง|รายการ/.test(flat[i])) return;
       const v = parseMoney(l); if (v != null && (best == null || v > best)) best = v;
     });
     out.amount = best; out.check = true;
@@ -610,12 +610,41 @@ function parseSlip(raw) {
   return out;
 }
 
+/* แจ้งเตือน Krungthai Connext ในไลน์: 1 ภาพมีได้หลายรายการ แต่ละรายการขึ้นต้นด้วย "เงินออก" หรือ "เงินเข้า" */
+function parseConnext(raw) {
+  const text = normalize(raw);
+  const lines = text.split(/\n/).map(x => x.trim()).filter(Boolean);
+  const flat = lines.map(l => l.replace(/\s+/g, ""));
+  if (!flat.some(f => /ยอดที่ใช้ได้|ยอดคงเหลือ/.test(f)) || !flat.some(f => /^เงิน(ออก|เข้า)/.test(f))) return null;
+  const blocks = []; let cur = null;
+  lines.forEach((l, i) => {
+    if (/^เงิน(ออก|เข้า)/.test(flat[i])) { cur = { type: /^เงินเข้า/.test(flat[i]) ? "in" : "out", lines: [l], flats: [flat[i]] }; blocks.push(cur); }
+    else if (cur) { cur.lines.push(l); cur.flats.push(flat[i]); }
+  });
+  const val = (b, re) => {
+    const i = b.flats.findIndex(f => re.test(f)); if (i < 0) return "";
+    const parts = b.lines[i].split(/\s{2,}/);
+    return (parts.length > 1 ? parts.slice(1).join(" ") : b.lines[i].replace(/^\S+\s*/, "")).trim();
+  };
+  const out = [];
+  blocks.forEach(b => {
+    const amount = parseMoney(b.lines[0]);
+    const dv = val(b, /^วันที่/), d = findDate(dv) || findDate(b.lines.join("\n"));
+    if (amount == null || !d) return;          // รายการที่ถูกตัดขอบภาพ ข้ามไป
+    const tm = dv.match(/([01]?\d|2[0-3])\s?:\s?([0-5]\d)/) || b.lines.join(" ").match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
+    out.push({ amount, fee: 0, date: d.iso, time: tm ? `${pad(+tm[1])}:${tm[2]}` : "", to: cleanName(val(b, /^ไปยัง/)), from: cleanName(val(b, /^จาก(?!บัญชี)/)),
+      kind: cleanName(val(b, /^ประเภท/)), balAfter: parseMoney(val(b, /^ยอด(ที่ใช้ได้|คงเหลือ)/)), ref: "", bank: "กรุงไทย", check: false, incoming: b.type === "in", forceType: b.type });
+  });
+  return out.length ? out : null;
+}
+
 /* ============ 5) เดาหมวด และแยกรายรับ/รายจ่าย ============ */
 const RULES = [
+  ["other",  /ทรูมันนี่|truemoney|เติมเงิน|wallet/i],
   ["food",   /ร้าน|ข้าว|ก๋วยเตี๋ยว|อาหาร|กาแฟ|ชานม|ไก่|หมู|ส้มตำ|ขนม|cafe|coffee|food|7-?eleven|เซเว่น|lineman|ไลน์แมน|kfc|\bmk\b/i],
   ["travel", /bts|mrt|grab|bolt|แท็กซี่|taxi|น้ำมัน|ปตท|ptt|บางจาก|shell|รถ|ทางด่วน|easy\s?pass/i],
   ["bills",  /ไฟฟ้า|ประปา|เอไอเอส|ais|true|ทรู|dtac|ดีแทค|เน็ต|internet|หอพัก|ค่าเช่า|ประกัน|บัตรเครดิต/i],
-  ["shop",   /shopee|lazada|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s?c|บิ๊กซี|makro|แม็คโคร|uniqlo/i],
+  ["shop",   /ออนไลน์|shopee|lazada|ช้อป|central|เซ็นทรัล|lotus|โลตัส|big\s?c|บิ๊กซี|makro|แม็คโคร|uniqlo/i],
   ["people", /^(นาย|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.)|^(mr|mrs|ms|miss)\b/i],
 ];
 const keyOf = s => (s || "").replace(/\s+/g, "").toLowerCase();
@@ -629,6 +658,7 @@ function guessCat(name, type) {
   return "other";
 }
 function classify(p) {
+  if (p.forceType) return { type: p.forceType, who: (p.forceType === "in" ? (p.from || p.to) : p.to) || p.kind || "", excluded: false, note: p.to ? p.kind || "" : "" };
   const toMe = isMe(p.to), fromMe = isMe(p.from);
   if (toMe && fromMe) return { type: "out", who: p.to, excluded: true, own: true, note: "โอนระหว่างบัญชีตัวเอง" };
   if (toMe || (p.incoming && !fromMe)) return { type: "in", who: p.from || p.to, excluded: false, note: "" };
@@ -720,18 +750,23 @@ async function handleFiles(files) {
     try {
       const { img, url } = await loadImage(files[n]);
       const thumb = toCanvas(img, Math.min(360, img.naturalWidth)).toDataURL("image/jpeg", 0.6);
-      let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "";
+      let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "", list = null;
       if (worker) {
         const r = await worker.recognize(toCanvas(img, Math.min(1600, Math.max(1000, img.naturalWidth))));
-        raw = r.data.text; p = parseSlip(raw);
-        if (!p.amount || !p.date || !p.to) {
-          setP("อ่านไม่ชัด กำลังอ่านซ้ำแบบปรับรูป", n);
-          const r2 = await worker.recognize(enhanced(img));
-          p = merge(p, parseSlip(r2.data.text));
-          raw += "\n----- รอบสอง -----\n" + r2.data.text;
+        raw = r.data.text; list = parseConnext(raw);
+        if (!list) {
+          p = parseSlip(raw);
+          if (!p.amount || !p.date || !p.to) {
+            setP("อ่านไม่ชัด กำลังอ่านซ้ำแบบปรับรูป", n);
+            const r2 = await worker.recognize(enhanced(img));
+            p = merge(p, parseSlip(r2.data.text));
+            raw += "\n----- รอบสอง -----\n" + r2.data.text;
+          }
         }
       }
       URL.revokeObjectURL(url);
+      const found = list || [p];
+      for (const p of found) {
       const c = classify(p);
       if (findDup(p)) { dup++; continue; }
       const maybe = maybeDup(p);
@@ -746,9 +781,11 @@ async function handleFiles(files) {
           .sort((a, b) => b.date.localeCompare(a.date))[0];
         if (cand) { item.cat = "in-refund"; item.refundOf = cand.id; item.check = true; item.note = "เดาว่าเป็นเงินคืนค่าหาร: " + (cand.to || cand.note || "รายการ " + thaiDate(cand.date)); }
       }
+      if (p.balAfter != null) item.balAfter = p.balAfter;
       if (item.check) review++;
       state.items.push(item); added++;
       firstYm = firstYm || ymKey(item.date);
+      }
       save(); render();
     } catch (e) { review++; }
   }
@@ -757,7 +794,7 @@ async function handleFiles(files) {
   $("pick").disabled = false;
   if (firstYm) curYm = firstYm;
   render();
-  toast(`เพิ่ม ${added} สลิป` + (dup ? ` · ข้ามที่ซ้ำ ${dup}` : "") + (maybeN ? ` · อาจซ้ำ ${maybeN}` : "") + (review ? ` · ควรตรวจ ${review}` : ""));
+  toast(`เพิ่ม ${added} รายการ` + (dup ? ` · ข้ามที่ซ้ำ ${dup}` : "") + (maybeN ? ` · อาจซ้ำ ${maybeN}` : "") + (review ? ` · ควรตรวจ ${review}` : ""));
 }
 
 /* ============ 7) แสดงผล ============ */
