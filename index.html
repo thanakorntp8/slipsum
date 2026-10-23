@@ -137,6 +137,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .note.sample b { color: var(--warn); }
 .note.err { background: #2a1210; border-color: #4a1d18; }
 .note.dup { background: #10202a; border-color: #1d3a4a; }
+.ver { text-align: center; font-size: 11px; color: var(--muted); opacity: .6; }
 .note.dup b { color: var(--accent, #7cc4ff); }
 .dup-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 8px; }
 .dup-row small { color: var(--muted, #9aa); }
@@ -343,6 +344,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
+  <div class="ver" id="ver">เวอร์ชัน 20 · 23 ต.ค. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -628,7 +630,7 @@ const BANK_LINE = /^(ธ\.|ธนาคาร|พร้อมเพย์|prompt
 const LABEL_TO = /^(ไปยัง|ถึง|ผู้รับ|to\b)/i;
 const LABEL_FROM = /^(จาก|ผู้โอน|from\b)/i;
 function afterLabel(lines, i, re) { const rest = lines[i].replace(re, "").replace(/^[\s:]+/, "").trim(); return rest.length > 2 ? rest : (lines[i + 1] || ""); }
-const cleanName = s => (s || "").replace(/[^฀-๿A-Za-z0-9 .\-&()]/g, "").replace(/\(\s*\)/g, "").replace(/\s+/g, " ").trim();
+const cleanName = s => (s || "").replace(/[^฀-๿A-Za-z0-9 .\-&()]/g, "").replace(/\([^()]{0,2}\)/g, "").replace(/\s+/g, " ").trim();
 function parseSlip(raw) {
   const text = normalize(raw);
   const lines = text.split(/\n/).map(s => s.trim()).filter(Boolean);
@@ -690,6 +692,8 @@ function parseConnext(raw) {
   const text = normalize(raw);
   const lines = text.split(/\n/).map(x => x.trim()).filter(Boolean);
   const flat = lines.map(l => l.replace(/\s+/g, ""));
+  flat.forEach((f, i) => { flat[i] = f.replace(/^[^ก-๙0-9A-Za-z+\-]+/, ""); });   // เศษขอบการ์ดหน้าบรรทัด เช่น "| เงินออก"
+  lines.forEach((l, i) => { lines[i] = l.replace(/^[^ก-๙0-9A-Za-z+\-]+\s*/, ""); });
   if (!flat.some(f => /ใช้ได้|คงเหลือ/.test(f)) || !flat.some(f => /^เงิน(ออก|เข้า)/.test(f))) return null;
   // วันที่ในการ์ดอ่านเพี้ยนได้ เช่น 22|10|69 หรือ 22/1069 จึงรับตัวคั่นหลายแบบ
   const DT = /(\d{1,2})\s?[\/\-|Il\\]?\s?(\d{1,2})\s?[\/\-|Il\\]?\s?(\d{4}|\d{2})\s+([01]?\d|2[0-3])\s?[:.]\s?([0-5]\d)/;
@@ -760,7 +764,7 @@ function parseKLive(raw) {
   return out.length ? out : null;
 }
 const parseNotif = raw => parseConnext(raw) || parseKLive(raw);
-const notifCount = raw => { const f = normalize(raw).split(/\n/).map(l => l.replace(/\s+/g, "")); return Math.max(f.filter(x => /^เงิน(ออก|เข้า)/.test(x) || KL_HEAD.test(x)).length, f.some(x => /^เงิน(ออก|เข้า)/.test(x)) ? f.filter(x => /ใช้ได้/.test(x)).length : 0); };
+const notifCount = raw => { const f = normalize(raw).split(/\n/).map(l => l.replace(/\s+/g, "").replace(/^[^ก-๙0-9A-Za-z+\-]+/, "")); return Math.max(f.filter(x => /^เงิน(ออก|เข้า)/.test(x) || KL_HEAD.test(x)).length, f.some(x => /^เงิน(ออก|เข้า)/.test(x)) ? f.filter(x => /ใช้ได้/.test(x)).length : 0); };
 
 /* ============ 5) เดาหมวด และแยกรายรับ/รายจ่าย ============ */
 const RULES = [
@@ -855,13 +859,17 @@ function findDup(p, sameImg) {
     (p.amount != null && i.amount === p.amount && p.date && i.date === p.date && p.time && i.time === p.time &&
      !(p.balAfter != null && i.balAfter != null && Math.abs(p.balAfter - i.balAfter) > 0.005))));
 }
-let skipped = [];
+let skipped = [], report = [];
 function showSkipped() {
   const box = $("dup-note");
-  if (!skipped.length) { box.hidden = true; box.innerHTML = ""; return; }
+  const short = report.filter(x => x.kind === "short" || x.kind === "err"), added = report.filter(x => x.kind === "added");
+  if (!skipped.length && !short.length) { box.hidden = true; box.innerHTML = ""; return; }
   box.hidden = false;
   const line = x => `${x.type === "in" ? "+" : "−"}฿${fmt(x.amount)} · ${thaiDate(x.date)}${x.time ? " " + x.time : ""}`;
-  box.innerHTML = `<div><b>ข้าม ${skipped.length} รายการเพราะดูเหมือนมีอยู่แล้ว</b> ถ้าไม่ใช่รายการเดียวกัน กด "เพิ่มอยู่ดี"</div>` +
+  box.innerHTML = `<div><b>ผลการอ่านรูป</b> เพิ่ม ${added.length} · ซ้ำ ${skipped.length}</div>` +
+    added.map(a => `<div class="dup-row"><span>✓ ${esc(line(a.item))} · ${esc(a.item.to || a.item.note || "")}<br><small>เพิ่มแล้ว${a.item.check ? " · ติดป้ายให้ตรวจ" : ""}</small></span></div>`).join("") +
+    short.map((x, k) => `<div class="dup-row"><span>⚠ ${x.kind === "err" ? "อ่านรูปนี้แล้วเกิดข้อผิดพลาด: " + esc(x.msg) : `รูปนี้มีแจ้งเตือน ${x.nc} ใบ แต่อ่านรายละเอียดได้ ${x.got} ใบ`}<br><small>กดคัดลอกข้อความที่อ่านได้ แล้วส่งให้คนแก้แอปดู (ปิดชื่อกับเลขบัญชีก่อน)</small></span><button type="button" class="btn small" data-raw="${k}">คัดลอก</button></div>`).join("") +
+    (skipped.length ? `<div><small>รายการด้านล่างดูเหมือนมีอยู่แล้วเลยข้าม ถ้าไม่ใช่รายการเดียวกัน กด "เพิ่มอยู่ดี"</small></div>` : "") +
     skipped.map((s, k) => `<div class="dup-row"><span>${esc(line(s.item))} · ${esc(s.item.to || s.item.note || "")}<br><small>ซ้ำกับ: ${esc(s.match.to || s.match.note || "รายการเดิม")} (${esc(line(s.match))})</small></span><button type="button" class="btn small" data-k="${k}">เพิ่มอยู่ดี</button></div>`).join("") +
     `<button type="button" class="btn small ghost" data-k="x">ปิด</button>`;
 }
@@ -884,17 +892,17 @@ async function handleFiles(files) {
   if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
 
   let added = 0, dup = 0, review = 0, maybeN = 0, firstYm = null;
-  skipped = []; showSkipped();
+  skipped = []; report = []; showSkipped();
   for (let n = 0; n < files.length; n++) {
     setP("กำลังอ่านสลิป", n);
     try {
       const { img, url } = await loadImage(files[n]);
       const thumb = toCanvas(img, Math.min(360, img.naturalWidth)).toDataURL("image/jpeg", 0.6);
-      let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "", list = null;
+      let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "", list = null, nc = 0;
       if (worker) {
         const r = await worker.recognize(toCanvas(img, Math.min(1600, Math.max(1000, img.naturalWidth))));
         raw = r.data.text; list = parseNotif(raw);
-        const nc = notifCount(raw);
+        nc = notifCount(raw);
         if (nc && (!list || list.length < nc)) {   // แจ้งเตือนที่ตัวหนังสือสีเทาจาง: อ่านซ้ำแบบปรับรูป
           setP("กำลังอ่านซ้ำแบบปรับรูป", n);
           const r2 = await worker.recognize(enhanced(img));
@@ -938,11 +946,12 @@ async function handleFiles(files) {
       }
       if (p.balAfter != null) item.balAfter = p.balAfter;
       if (item.check) review++;
-      state.items.push(item); added++; sameImg.add(item.id);
+      state.items.push(item); added++; sameImg.add(item.id); report.push({ kind: "added", item });
       firstYm = firstYm || ymKey(item.date);
       }
+      if (list && nc > list.length) report.push({ kind: "short", nc, got: list.length, raw });
       save(); render();
-    } catch (e) { review++; }
+    } catch (e) { review++; report.push({ kind: "err", msg: String(e && e.message || e).slice(0, 120), raw: "" }); }
   }
   setP("เสร็จแล้ว", files.length);
   setTimeout(() => { prog.hidden = true; }, 900);
@@ -1517,9 +1526,12 @@ let toastT;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
 let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(render, 150); });
 
-document.addEventListener("click", e => {
+document.addEventListener("click", async e => {
+  const rb = e.target.closest("#dup-note [data-raw]");
+  if (rb) { const x = report.filter(x => x.kind === "short" || x.kind === "err")[+rb.dataset.raw];
+    try { await navigator.clipboard.writeText(x.raw || x.msg); toast("คัดลอกแล้ว"); } catch (err) { toast("คัดลอกไม่ได้ ลองแตะรายการที่อ่านได้แล้วกดคัดลอกจากในนั้น"); } return; }
   const b = e.target.closest("#dup-note [data-k]"); if (!b) return;
-  if (b.dataset.k === "x") { skipped = []; showSkipped(); return; }
+  if (b.dataset.k === "x") { skipped = []; report = []; showSkipped(); return; }
   const s = skipped[+b.dataset.k]; if (!s) return;
   state.items.push(s.item); skipped.splice(+b.dataset.k, 1); save(); render(); showSkipped(); toast("เพิ่มแล้ว · ติดป้ายให้ตรวจ");
 });
