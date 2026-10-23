@@ -638,6 +638,36 @@ function parseConnext(raw) {
   return out.length ? out : null;
 }
 
+/* แจ้งเตือน KBank Live ในไลน์: การ์ดขึ้นต้นด้วย "รายการเงินเข้า" / "รายการโอน/ถอน" ตามด้วยวันเวลา จำนวนเงิน ยอดเงินคงเหลือ */
+const KL_HEAD = /^รายการ(เงินเข้า|รับเงิน|โอน|ถอน|ชำระ|จ่าย)/;
+function parseKLive(raw) {
+  const text = normalize(raw);
+  const lines = text.split(/\n/).map(x => x.trim()).filter(Boolean);
+  const flat = lines.map(l => l.replace(/\s+/g, ""));
+  if (!flat.some(f => KL_HEAD.test(f))) return null;
+  const blocks = []; let cur = null;
+  lines.forEach((l, i) => {
+    if (KL_HEAD.test(flat[i])) { cur = { head: flat[i], lines: [l], flats: [flat[i]] }; blocks.push(cur); }
+    else if (cur) { cur.lines.push(l); cur.flats.push(flat[i]); }
+  });
+  const out = [];
+  blocks.forEach(b => {
+    const ai = b.flats.findIndex(f => /^จำนวน/.test(f));
+    const amount = ai >= 0 ? parseMoney(b.lines[ai].replace(/^\S+\s*/, "")) : null;
+    const body = b.lines.join("\n"), d = findDate(body);
+    if (amount == null || !d) return;
+    const tm = body.slice(body.indexOf(d.iso) >= 0 ? 0 : 0).match(/\b([01]?\d|2[0-3])\s?:\s?([0-5]\d)\b/);
+    const bi = b.flats.findIndex(f => /^ยอดเงินคงเหลือ|^ยอดคงเหลือ/.test(f));
+    const incoming = /เงินเข้า|รับเงิน/.test(b.head);
+    out.push({ amount, fee: 0, date: d.iso, time: tm ? `${pad(+tm[1])}:${tm[2]}` : "", to: "", from: "",
+      kind: incoming ? "เงินเข้า K PLUS" : /ชำระ|จ่าย/.test(b.head) ? "ชำระเงิน K PLUS" : "โอน/ถอน K PLUS",
+      balAfter: bi >= 0 ? parseMoney(b.lines[bi].replace(/^\S+\s*/, "")) : null, ref: "", bank: "กสิกร", check: false, incoming, forceType: incoming ? "in" : "out" });
+  });
+  return out.length ? out : null;
+}
+const parseNotif = raw => parseConnext(raw) || parseKLive(raw);
+const notifCount = raw => { const f = normalize(raw).split(/\n/).map(l => l.replace(/\s+/g, "")); return f.filter(x => /^เงิน(ออก|เข้า)/.test(x) || KL_HEAD.test(x)).length; };
+
 /* ============ 5) เดาหมวด และแยกรายรับ/รายจ่าย ============ */
 const RULES = [
   ["other",  /ทรูมันนี่|truemoney|เติมเงิน|wallet/i],
@@ -753,7 +783,14 @@ async function handleFiles(files) {
       let p = { amount: null, fee: 0, date: "", time: "", to: "", from: "", ref: "", bank: "", check: true, incoming: false }, raw = "", list = null;
       if (worker) {
         const r = await worker.recognize(toCanvas(img, Math.min(1600, Math.max(1000, img.naturalWidth))));
-        raw = r.data.text; list = parseConnext(raw);
+        raw = r.data.text; list = parseNotif(raw);
+        const nc = notifCount(raw);
+        if (nc && (!list || list.length < nc)) {   // แจ้งเตือนที่ตัวหนังสือสีเทาจาง: อ่านซ้ำแบบปรับรูป
+          setP("กำลังอ่านซ้ำแบบปรับรูป", n);
+          const r2 = await worker.recognize(enhanced(img));
+          const list2 = parseNotif(r2.data.text);
+          if (list2 && (!list || list2.length > list.length)) { list = list2; raw += "\n----- รอบสอง -----\n" + r2.data.text; }
+        }
         if (!list) {
           p = parseSlip(raw);
           if (!p.amount || !p.date || !p.to) {
