@@ -690,25 +690,44 @@ function parseConnext(raw) {
   const text = normalize(raw);
   const lines = text.split(/\n/).map(x => x.trim()).filter(Boolean);
   const flat = lines.map(l => l.replace(/\s+/g, ""));
-  if (!flat.some(f => /ยอดที่ใช้ได้|ยอดคงเหลือ/.test(f)) || !flat.some(f => /^เงิน(ออก|เข้า)/.test(f))) return null;
-  const blocks = []; let cur = null;
-  lines.forEach((l, i) => {
-    if (/^เงิน(ออก|เข้า)/.test(flat[i])) { cur = { type: /^เงินเข้า/.test(flat[i]) ? "in" : "out", lines: [l], flats: [flat[i]] }; blocks.push(cur); }
-    else if (cur) { cur.lines.push(l); cur.flats.push(flat[i]); }
-  });
-  const val = (b, re) => {
-    const i = b.flats.findIndex(f => re.test(f)); if (i < 0) return "";
-    const parts = b.lines[i].split(/\s{2,}/);
-    return (parts.length > 1 ? parts.slice(1).join(" ") : b.lines[i].replace(/^\S+\s*/, "")).trim();
-  };
+  if (!flat.some(f => /ใช้ได้|คงเหลือ/.test(f)) || !flat.some(f => /^เงิน(ออก|เข้า)/.test(f))) return null;
+  // วันที่ในการ์ดอ่านเพี้ยนได้ เช่น 22|10|69 หรือ 22/1069 จึงรับตัวคั่นหลายแบบ
+  const DT = /(\d{1,2})\s?[\/\-|Il\\]?\s?(\d{1,2})\s?[\/\-|Il\\]?\s?(\d{4}|\d{2})\s+([01]?\d|2[0-3])\s?[:.]\s?([0-5]\d)/;
+  const dateOf = l => { const m = l.match(DT); if (!m) return null; const d = +m[1], mo = +m[2], y = fixYear(+m[3]);
+    return d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y ? { iso: `${y}-${pad(mo)}-${pad(d)}`, time: `${pad(+m[4])}:${m[5]}` } : null; };
+  // แบ่งการ์ดด้วยบรรทัด "วันที่ทำรายการ" ซึ่งเป็นบรรทัดสุดท้ายของทุกการ์ด (หัวการ์ดอ่านพลาดก็ยังแยกได้)
+  const segs = []; let cur = [];
+  lines.forEach((l, i) => { cur.push(i); const d = dateOf(l); if (d && (/^วัน|ทำรายการ|รายการ/.test(flat[i]) || cur.length > 2)) {
+    // ถ้าวันที่ของการ์ดก่อนหน้าอ่านไม่ออก การ์ดสองใบจะติดกัน: แยกที่หัว "เงินออก/เงินเข้า" ใบแรกได้แค่วัน ไม่มีเวลา ให้ตรวจ
+    const heads = cur.filter(k => /^เงิน(ออก|เข้า)/.test(flat[k]));
+    for (let h = 0; h < heads.length - 1; h++) segs.push({ idx: cur.filter(k => k >= heads[h] && k < heads[h + 1]), d: { iso: d.iso, time: "" }, loose: true });
+    segs.push({ idx: heads.length > 1 ? cur.filter(k => k >= heads[heads.length - 1]) : cur, d }); cur = []; } });
+  const val = (i) => { const parts = lines[i].split(/\s{2,}/); return (parts.length > 1 ? parts.slice(1).join(" ") : lines[i].replace(/^\S+\s*/, "")).trim(); };
   const out = [];
-  blocks.forEach(b => {
-    const amount = parseMoney(b.lines[0]);
-    const dv = val(b, /^วันที่/), d = findDate(dv) || findDate(b.lines.join("\n"));
-    if (amount == null || !d) return;          // รายการที่ถูกตัดขอบภาพ ข้ามไป
-    const tm = dv.match(/([01]?\d|2[0-3])\s?:\s?([0-5]\d)/) || b.lines.join(" ").match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-    out.push({ amount, fee: 0, date: d.iso, time: tm ? `${pad(+tm[1])}:${tm[2]}` : "", to: cleanName(val(b, /^ไปยัง/)), from: cleanName(val(b, /^จาก(?!บัญชี)/)),
-      kind: cleanName(val(b, /^ประเภท/)), balAfter: parseMoney(val(b, /^ยอด(ที่ใช้ได้|คงเหลือ)/)), ref: "", bank: "กรุงไทย", check: false, incoming: b.type === "in", forceType: b.type });
+  let prevBal = null;
+  segs.forEach(sg => {
+    const ix = sg.idx, F = ix.map(i => flat[i]);
+    const bi = F.findIndex(f => /^ยอด.*(ใช้ได้|คงเหลือ)|ใช้ได้/.test(f));
+    const bal = bi >= 0 ? parseMoney(lines[ix[bi]].replace(/^\S*?(ใช้ได้|คงเหลือ)\s*/, "")) : null;
+    let hi = F.findIndex(f => /^เงิน(ออก|เข้า)/.test(f));
+    if (hi < 0) hi = F.findIndex((f, k) => k !== bi && /บาท/.test(f) && !/ใช้ได้|คงเหลือ/.test(f));
+    if (hi < 0 && bal == null) { return; }                 // เศษการ์ดที่ถูกตัดขอบด้านบน
+    let amount = hi >= 0 ? parseMoney(lines[ix[hi]].replace(/^\S*?(ออก|เข้า)/, "")) : null;
+    let type = hi >= 0 && /^เงินเข้า/.test(F[hi]) ? "in" : hi >= 0 && /^เงินออก/.test(F[hi]) ? "out" : hi >= 0 && /-/.test(lines[ix[hi]]) ? "out" : null;
+    let check = false, note = "";
+    if (prevBal != null && bal != null) {                   // ยอดคงเหลือของการ์ดก่อนหน้า - การ์ดนี้ = ยอดรายการนี้
+      const diff = Math.round((prevBal - bal) * 100) / 100;
+      if (amount == null && diff) { amount = Math.abs(diff); type = type || (diff > 0 ? "out" : "in"); check = true; note = "คำนวณยอดจากยอดคงเหลือ"; }
+      else if (amount != null && Math.abs(Math.abs(diff) - amount) > 0.005) check = true;
+      else if (amount != null && !type) type = diff > 0 ? "out" : "in";
+    }
+    if (bal != null) prevBal = bal;
+    if (amount == null) return;
+    if (!type) { type = "out"; check = true; }
+    if (sg.loose) check = true;
+    const pick = re => { const k = F.findIndex(f => re.test(f)); return k >= 0 ? val(ix[k]) : ""; };
+    out.push({ amount, fee: 0, date: sg.d.iso, time: sg.d.time, to: cleanName(pick(/^ไปยัง|^ผู้รับ/)), from: cleanName(pick(/^จาก(?!บัญชี)/)),
+      kind: cleanName(pick(/^ประเภท/)) || note, balAfter: bal, ref: "", bank: "กรุงไทย", check, incoming: type === "in", forceType: type });
   });
   return out.length ? out : null;
 }
@@ -741,7 +760,7 @@ function parseKLive(raw) {
   return out.length ? out : null;
 }
 const parseNotif = raw => parseConnext(raw) || parseKLive(raw);
-const notifCount = raw => { const f = normalize(raw).split(/\n/).map(l => l.replace(/\s+/g, "")); return f.filter(x => /^เงิน(ออก|เข้า)/.test(x) || KL_HEAD.test(x)).length; };
+const notifCount = raw => { const f = normalize(raw).split(/\n/).map(l => l.replace(/\s+/g, "")); return Math.max(f.filter(x => /^เงิน(ออก|เข้า)/.test(x) || KL_HEAD.test(x)).length, f.some(x => /^เงิน(ออก|เข้า)/.test(x)) ? f.filter(x => /ใช้ได้/.test(x)).length : 0); };
 
 /* ============ 5) เดาหมวด และแยกรายรับ/รายจ่าย ============ */
 const RULES = [
@@ -832,6 +851,7 @@ const refLike = (a, b) => !!(a && b && a.length >= 10 && b.length >= 10 && (a ==
 function findDup(p, sameImg) {
   return state.items.find(i => !i.sample && !(sameImg && sameImg.has(i.id)) && (
     refLike(p.ref, i.ref) ||
+    (p.amount != null && i.amount === p.amount && p.date && i.date === p.date && p.balAfter != null && i.balAfter != null && Math.abs(p.balAfter - i.balAfter) < 0.005) ||
     (p.amount != null && i.amount === p.amount && p.date && i.date === p.date && p.time && i.time === p.time &&
      !(p.balAfter != null && i.balAfter != null && Math.abs(p.balAfter - i.balAfter) > 0.005))));
 }
