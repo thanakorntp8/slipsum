@@ -831,6 +831,11 @@ async function handleFiles(files) {
       for (const p of found) {
       const c = classify(p);
       if (findDup(p)) { dup++; continue; }
+      // เงินเข้าที่ตรงกับ "เพื่อนคืนแล้ว" ซึ่งเคยกดบันทึกเองไว้ (ไม่มีสลิป): เป็นรายการเดียวกัน ไม่เพิ่มซ้ำ แค่เติมวันเวลาให้
+      if (c.type === "in" && p.amount != null && p.date) {
+        const m = state.items.find(x => x.cat === "in-refund" && !x.matched && !x.ref && !x.time && x.amount === p.amount && Math.abs(Date.parse(x.date) - Date.parse(p.date)) <= 3 * 864e5);
+        if (m) { m.date = p.date; m.time = p.time; m.matched = true; dup++; continue; }
+      }
       const maybe = maybeDup(p);
       const item = { id: uid(), date: p.date || todayISO(), time: p.time, amount: p.amount || 0, fee: p.fee || 0,
         to: c.who, from: p.from, type: c.type, excluded: c.excluded, own: !!c.own, created: Date.now(), dateGuessed: !p.date, cat: c.excluded ? "other" : guessCat(c.who, c.type),
