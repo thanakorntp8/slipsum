@@ -355,7 +355,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 21 · 23 ต.ค. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 22 · 28 ต.ค. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -692,19 +692,33 @@ function parseSlip(raw) {
     const v = parseMoney(lines[i]) ?? (lines[i + 1] ? parseMoney(lines[i + 1]) : null);
     if (v != null && v !== out.amount) out.fee = v; break;
   }
-  const d = findDate(text);
+  // วันที่: ใช้บรรทัด "วันที่ทำรายการ" ก่อน (ตัวหนังสือมั่วๆ บนหัวสลิปอาจหน้าตาเหมือนวันที่) ถ้าไม่มีค่อยหาทั้งสลิป
+  let d = null, dText = text;
+  for (let i = 0; i < lines.length && !d; i++) if (/^วัน|ทำรายการ|^date/i.test(flat[i])) {
+    const seg = lines[i] + (lines[i + 1] && !/:/.test(lines[i]) ? "\n" + lines[i + 1] : "");
+    const dd = findDate(seg); if (dd) { d = dd; dText = seg; d.labeled = true; }
+  }
+  if (!d) d = findDate(text);
   if (d) out.date = d.iso;
-  const tAfter = d ? text.slice(d.at) : text;
+  const tAfter = d ? dText.slice(d.at) : text;
   const t = tAfter.match(/\b([01]?\d|2[0-3])\s?:\s?([0-5]\d)\b/) || text.match(/\b([01]?\d|2[0-3])\s?:\s?([0-5]\d)\b/);
   if (t) out.time = `${pad(+t[1])}:${t[2]}`;
-  for (let i = 0; i < lines.length; i++) if (/เลขที่รายการ|อ้างอิง/.test(flat[i]) || /\bref\b/i.test(lines[i])) {
-    const pick = s => (s.replace(/^.*?(รายการ|อ้างอิง|ref\w*)\s*:?/i, "").match(/[A-Za-z0-9]{8,}/) || [])[0];
+  for (let i = 0; i < lines.length; i++) if (/เลขที่รายการ|อ้างอิง|อ้าง/.test(flat[i]) || /\bref\b/i.test(lines[i])) {
+    const pick = s => (s.replace(/^.*?(รายการ|อ้าง\S*|ref\w*)\s*:?[\s(]*/i, "").match(/[A-Za-z0-9]{8,}/) || [])[0];
     out.ref = pick(lines[i]) || (lines[i + 1] && (lines[i + 1].match(/[A-Za-z0-9]{8,}/) || [])[0]) || "";
     break;
   }
-  for (let i = 0; i < lines.length - 1; i++) {
-    if (!out.to && LABEL_TO.test(lines[i])) out.to = afterLabel(lines, i, LABEL_TO);
-    else if (!out.from && LABEL_FROM.test(lines[i])) out.from = afterLabel(lines, i, LABEL_FROM);
+  // เลขอ้างอิงกรุงไทยมีวันที่ฝังอยู่ เช่น C20261027... = 27 ต.ค. 2026 ใช้เช็ก/แทนวันที่ที่อ่านพลาด
+  const rm = (out.ref || "").match(/^[A-Za-z(]{0,2}(20\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+  if (rm && out.bank === "กรุงไทย") {
+    const rIso = `${rm[1]}-${rm[2]}-${rm[3]}`, gap = Math.abs(Date.parse(rIso) - Date.now()) / 864e5;
+    if (gap < 400 && rIso !== out.date) { if (out.date) out.check = true; out.date = rIso; }
+  }
+  // เศษสั้นๆ หน้าป้าย เช่น "he.  ไปยัง" ตัดทิ้งก่อนหาป้าย
+  const lab = lines.map(l => l.replace(/^[^ก-๙\s]{1,4}\s+(?=ไปย|จาก|ถึง|ผู้)/, "").replace(/^ไปย\S*/, "ไปยัง"));
+  for (let i = 0; i < lab.length - 1; i++) {
+    if (!out.to && LABEL_TO.test(lab[i])) out.to = afterLabel(lab, i, LABEL_TO);
+    else if (!out.from && LABEL_FROM.test(lab[i])) out.from = afterLabel(lab, i, LABEL_FROM);
   }
   if (!out.to || !out.from) {
     const names = [];
