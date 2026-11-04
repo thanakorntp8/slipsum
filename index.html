@@ -355,7 +355,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 24 · 4 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 25 · 4 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -447,6 +447,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
         <label class="f">หรือ ส่วนของเรา (บาท)<input id="f-mine" inputmode="decimal" autocomplete="off" placeholder="เช่น 130"></label>
       </div>
       <p class="hint" id="split-info" style="margin:0"></p>
+      <div id="rf-links" class="rf-list" hidden></div>
       <div id="repay-box" class="fields" hidden>
         <label class="f">เพื่อนคืนมาแล้ว (บาท)<input id="f-repay" inputmode="decimal" autocomplete="off"></label>
         <button type="button" class="btn small" id="f-repay-btn" style="align-self:end">บันทึกว่าเพื่อนคืนแล้ว</button>
@@ -1459,12 +1460,32 @@ function formShare() {   // ส่วนของเราตามที่ก�
 }
 function splitInfo() {
   const f = formShare(), it = editId ? state.items.find(i => i.id === editId) : null, back = it ? refunded(it) : 0;
-  $("repay-box").hidden = true;
+  $("repay-box").hidden = true; drawRfLinks(it);
   if (!f.set || !f.a) { $("split-info").textContent = "ถ้าจ่ายแทนเพื่อนไปก่อน ใส่จำนวนคนที่หารเท่ากัน หรือใส่ส่วนของเราเองถ้าแต่ละคนกินไม่เท่ากัน แอปจะนับเฉพาะส่วนของเรา"; return; }
   const wait = Math.max(0, f.a - f.mine - back);
   $("split-info").innerHTML = `ส่วนของเรา <b>฿${fmt(f.mine)}</b> · ${wait > 0 ? `รอเพื่อนคืน <b>฿${fmt(wait)}</b>` : "เพื่อนคืนครบแล้ว"}${back ? ` (คืนแล้ว ฿${fmt(back)})` : ""}`;
   if (it && wait > 0) { $("repay-box").hidden = false; $("f-repay").value = String(Math.round(wait * 100) / 100); }
 }
+// เงินคืนที่ผูกกับรายจ่ายนี้ พร้อมปุ่มยกเลิก (เผื่อกด "เพื่อนคืนแล้ว" ผิด)
+function drawRfLinks(it) {
+  const box = $("rf-links");
+  const list = it ? state.items.filter(r => isRefund(r) && allocOf(r).some(a => a.id === it.id)) : [];
+  box.hidden = !list.length;
+  box.innerHTML = list.map(r => { const a = allocOf(r).find(a => a.id === it.id);
+    return `<div class="rf-row" style="grid-template-columns:1fr auto"><span>เพื่อนคืน ฿${fmt(a.amt)}<small>${thaiDate(r.date)}${r.time ? " " + r.time : ""} · ${esc(r.to || "เพื่อน")}${r.thumb || r.raw ? "" : " · ไม่มีสลิป"}</small></span><button type="button" class="btn small" data-unrf="${r.id}">ยกเลิก</button></div>`; }).join("");
+}
+let unrfArm = "", unrfT = 0;
+$("rf-links").addEventListener("click", e => {
+  const b = e.target.closest("[data-unrf]"); if (!b) return;
+  const rid = b.dataset.unrf, it = state.items.find(i => i.id === editId), r = state.items.find(i => i.id === rid); if (!it || !r) return;
+  if (unrfArm !== rid || Date.now() - unrfT > 3000) { unrfArm = rid; unrfT = Date.now(); b.textContent = "แตะอีกครั้ง"; return; }
+  unrfArm = "";
+  const rest = allocOf(r).filter(a => a.id !== it.id);
+  if (rest.length) { r.refundAlloc = rest; r.refundOf = rest[0].id; }
+  else if (!r.thumb && !r.raw) state.items = state.items.filter(i => i.id !== rid);       // กดบันทึกเอง ไม่มีสลิป: ลบทิ้ง
+  else { r.cat = "in-other"; r.refundOf = ""; r.refundAlloc = []; r.check = true; }       // มาจากสลิป: เก็บไว้เป็นรายรับ ให้ตรวจ
+  save(); render(); splitInfo(); toast("ยกเลิกเงินคืนแล้ว");
+});
 $("f-amount").addEventListener("input", splitInfo);
 $("f-split").addEventListener("input", () => { if ((parseInt($("f-split").value) || 1) > 1) $("f-mine").value = ""; splitInfo(); });
 $("f-mine").addEventListener("input", () => { if (num($("f-mine").value) > 0) $("f-split").value = 1; splitInfo(); });
