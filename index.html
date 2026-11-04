@@ -355,7 +355,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 23 · 4 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 24 · 4 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -481,7 +481,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
     <h3>ตั้งค่า</h3>
     <label class="f">งบรายจ่ายต่อเดือน (บาท)<input id="s-budget" inputmode="decimal" autocomplete="off" placeholder="เช่น 8000"></label>
     <p class="hint">ใส่ 0 หรือเว้นว่าง ถ้าไม่อยากใช้งบ</p>
-    <label class="f">ชื่อบัญชีของฉัน (ตามที่ขึ้นบนสลิป)<input id="s-name" autocomplete="off" placeholder="เช่น ธนกร"></label>
+    <label class="f">ชื่อ-นามสกุลของฉัน (โอนให้ชื่อนี้ = ไม่นับ)<input id="s-name" autocomplete="off" placeholder="เช่น ธนกร พวงดี"></label>
     <div>
       <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">หมวดที่เพิ่มเอง</div>
       <div id="s-cats"></div>
@@ -541,13 +541,20 @@ const STORE_KEY = "slipsum.v1";
 const $ = id => document.getElementById(id);
 
 /* ============ 2) เก็บข้อมูลในเครื่อง ============ */
-let state = { items: [], catMap: {}, settings: { budget: 0, myName: "ธนกร", customCats: [] } };
+let state = { items: [], catMap: {}, settings: { budget: 0, myName: "ธนกร พวงดี", customCats: [], ownFix1: true } }, ownFixN = 0;
 function load() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) {
       const s = JSON.parse(raw);
       state = { items: s.items || [], catMap: s.catMap || {}, settings: Object.assign({ budget: 0, myName: "ธนกร", customCats: [] }, s.settings || {}) };
+      // ครั้งเดียว: ใส่นามสกุล แล้วรายการที่โอนให้ตัวเองซึ่งเคยนับไว้ ให้เป็น "ไม่นับ"
+      if (!state.settings.ownFix1) {
+        if (state.settings.myName === "ธนกร") state.settings.myName = "ธนกร พวงดี";
+        state.settings.ownFix1 = true; ownFixN = 0;
+        state.items.forEach(i => { if (!i.excluded && !i.sample && i.to && isMe(i.to)) { i.excluded = true; i.own = true; i.note = i.note ? i.note : "โอนระหว่างบัญชีตัวเอง"; ownFixN++; } });
+        if (ownFixN) localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      }
     }
   } catch (e) {}
   rebuildCats();
@@ -774,7 +781,7 @@ function parseConnext(raw) {
     if (!type) { type = "out"; check = true; }
     if (sg.loose) check = true;
     const pick = re => { const k = F.findIndex(f => re.test(f)); return k >= 0 ? val(ix[k]) : ""; };
-    out.push({ amount, fee: 0, date: sg.d.iso, time: sg.d.time, to: cleanName(pick(/^ไปยัง|^ผู้รับ/)), from: cleanName(pick(/^จาก(?!บัญชี)/)),
+    out.push({ amount, fee: 0, date: sg.d.iso, time: sg.d.time, to: cleanName(pick(/^ผู้รับ/) || pick(/^ไปยัง/)), from: cleanName(pick(/^จาก(?!บัญชี)/)),
       kind: cleanName(pick(/^ประเภท/)) || note, balAfter: bal, ref: "", bank: "กรุงไทย", check, incoming: type === "in", forceType: type });
   });
   return out.length ? out : null;
@@ -873,8 +880,9 @@ function parseStatement(raw1, raw2) {
     const name = stName(r), acc = (r.detail.match(/X\s?(\d{4})/) || [])[1] || "";
     const xfer = /^[โอ]?อนไป|^จาก/.test(r.detail.trim());
     if (xfer && acc && isMe(name)) ownAcc.add(acc);
+    const meXfer = xfer && isMe(name);
     out.push({ amount: r.amount, fee: 0, date: r.date, time: r.time, to: type === "out" ? name : "", from: type === "in" ? name : "", kind: r.desc, balAfter: r.bal,
-      ref: "", bank: "กสิกร", check, incoming: type === "in", forceType: type, _acc: xfer ? acc : "" });
+      ref: "", bank: "กสิกร", check, incoming: type === "in", forceType: type, own: meXfer, _acc: xfer ? acc : "" });
   });
   out.forEach(p => { if (p._acc && ownAcc.has(p._acc)) p.own = true; delete p._acc; });
   return out.length ? out : null;
@@ -892,7 +900,16 @@ const RULES = [
 ];
 const keyOf = s => (s || "").replace(/\s+/g, "").toLowerCase();
 const skel = s => (s || "").replace(/[^ก-ฮA-Za-z]/g, "").toLowerCase();
-function isMe(name) { const me = skel(state.settings.myName); return !!me && me.length >= 2 && skel(name).includes(me); }
+// ชื่อเรา: ต้องมีชื่อต้น และถ้าตั้งนามสกุลไว้ ส่วนที่ตามหลังต้องตรงนามสกุล (กันคนชื่อซ้ำ) รองรับนามสกุลที่ถูกย่อ เช่น "พวง++" หรือ "พ"
+function isMe(name) {
+  const parts = (state.settings.myName || "").trim().split(/\s+/), first = skel(parts[0]), sur = skel(parts.slice(1).join(""));
+  const n = skel(name), i = n.indexOf(first);
+  if (first.length < 2 || i < 0) return false;
+  const rest = n.slice(i + first.length);
+  if (!sur || !rest) return true;
+  if (rest.length <= 2) return /^[a-z]+$/.test(rest) || sur.startsWith(rest);
+  return rest.startsWith(sur.slice(0, 3));
+}
 function guessCat(name, type) {
   const k = type + ":" + keyOf(name);
   if (keyOf(name) && state.catMap[k]) return state.catMap[k];
@@ -902,6 +919,7 @@ function guessCat(name, type) {
 }
 function classify(p) {
   if (p.forceType && p.own) return { type: p.forceType, who: p.to || p.from, excluded: true, own: true, note: "โอนระหว่างบัญชีตัวเอง" };
+  if (p.forceType && isMe(p.forceType === "in" ? p.from || p.to : p.to)) return { type: p.forceType, who: p.to || p.from, excluded: true, own: true, note: "โอนระหว่างบัญชีตัวเอง" };
   if (p.forceType) return { type: p.forceType, who: (p.forceType === "in" ? (p.from || p.to) : p.to) || p.kind || "", excluded: false, note: p.to ? p.kind || "" : "" };
   const toMe = isMe(p.to), fromMe = isMe(p.from);
   if (toMe && fromMe) return { type: "out", who: p.to, excluded: true, own: true, note: "โอนระหว่างบัญชีตัวเอง" };
@@ -1750,6 +1768,7 @@ $("selftest").onclick = selfTest;
 load();
 if (!state.items.length) seedSamples();
 render();
+if (ownFixN) toast(`ตั้งรายการโอนให้ตัวเอง ${ownFixN} รายการเป็น "ไม่นับ" แล้ว`);
 if (location.hash === "#selftest") selfTest();
 </script>
 
