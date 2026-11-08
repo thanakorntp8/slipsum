@@ -254,7 +254,13 @@ label.f select { font-size: 15px; }
 .owe-top .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #23281a; color: var(--accent); font-weight: 700; }
 .owe-top .av.none { background: #222; color: var(--muted); }
 .owe-top b { font-size: 16px; } .owe-top .amt { font-weight: 700; color: var(--accent); white-space: nowrap; }
-.owe-bills { color: var(--muted); font-size: 13px; margin: 6px 0 0 44px; }
+.owe-top b small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.owe-bl { display: grid; gap: 0; margin-top: 8px; }
+.owe-b { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.owe-b small { display: block; color: var(--muted); font-size: 12px; }
+.owe-ba { font-weight: 600; white-space: nowrap; }
+.owe-act { grid-column: 1 / -1; display: flex; gap: 8px; }
+.owe-act .btn { flex: 1; }
 .owe-x { margin-top: 10px; display: grid; gap: 6px; }
 .owe-total { color: var(--accent); }
 .dbt-row { display: grid; grid-template-columns: 1fr 90px 32px; gap: 6px; align-items: center; }
@@ -372,7 +378,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 28 · 8 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 29 · 8 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -978,45 +984,60 @@ function friendLedger() {
   });
   return [...people.values()].sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1) || b.total - a.total);
 }
-let oweOpen = "";
+let oweOpen = "", oweL = [], oweArm = "", oweT = 0;
+const billName = x => x.to || x.note || "รายการ";
 function renderOwe() {
   const L = friendLedger(), tot = L.reduce((s, p) => s + p.total, 0);
   $("owe-sec").hidden = !L.length || state.items.every(i => i.sample);
-  if (!L.length) return;
-  $("owe-sub").innerHTML = `เพื่อนยังค้าง · รวม <b class="owe-total">฿${fmt0(tot)}</b>`;
-  $("owe-list").innerHTML = L.map((p, k) => {
-    const open = oweOpen === (p.name || "__none");
+  oweL = L; if (!L.length) return;
+  $("owe-sub").innerHTML = `เพื่อนยังค้าง · รวม <b class="owe-total">฿${fmt(tot)}</b>`;
+  const named = L.filter(p => p.name), un = L.find(p => !p.name);
+  const billRow = (b, extra) => `<div class="owe-b"><span>${esc(billName(b.x))}<small>${thaiDate(b.x.date)} · จ่าย ฿${fmt(b.x.amount)}</small></span><span class="owe-ba">฿${fmt(b.amt)}</span>${extra || ""}</div>`;
+  $("owe-list").innerHTML = named.map(p => { const k = L.indexOf(p), open = oweOpen === p.name;
     return `<div class="owe-p" data-k="${k}">
-      <div class="owe-top" data-tog="${k}"><span class="av${p.name ? "" : " none"}">${p.name ? esc(p.name.slice(0, 1)) : "?"}</span><b>${p.name ? esc(p.name) : "ไม่ระบุชื่อ"}</b><span class="amt">฿${fmt0(p.total)}</span>${p.name ? `<button type="button" class="btn small" data-copy="${k}">ทวง</button>` : "<span></span>"}</div>
-      <div class="owe-bills">${p.bills.map(b => `${esc(b.x.to || b.x.note || "รายการ")} ฿${fmt0(b.amt)}`).join(" · ")}${p.name ? "" : "<br>แตะรายการแล้วใส่ชื่อเพื่อนในช่อง “ใครต้องคืนบ้าง” ได้"}</div>
-      ${open ? `<div class="owe-x">${p.bills.map((b, j) => `<label class="rf-row on"><input type="checkbox" data-ob="${j}" checked><span>${esc(b.x.to || b.x.note || "รายการ")}<small>${thaiDate(b.x.date)} · จ่าย ฿${fmt(b.x.amount)}</small></span><span>฿${fmt(b.amt)}</span></label>`).join("")}
-        <button type="button" class="btn" data-paid="${k}">บันทึกว่า${p.name ? esc(p.name) : "เพื่อน"}คืนแล้ว ฿${fmt(p.total)}</button>
-        <p class="hint" style="margin:0">ถ้าเพื่อนโอนมาทางแอปธนาคาร แคปแจ้งเตือนเงินเข้ามาใส่ได้เลย แอปจะรู้ว่าเป็นยอดเดียวกันกับที่บันทึกตรงนี้</p></div>` : ""}
-    </div>`; }).join("");
-  oweL = L;
+      <div class="owe-top" data-tog="${k}"><span class="av">${esc(p.name.slice(0, 1))}</span><b>${esc(p.name)}<small>${p.bills.length} บิล · แตะเพื่อบันทึกว่าคืนแล้ว</small></b><span class="amt">฿${fmt(p.total)}</span><button type="button" class="btn small" data-copy="${k}">ทวง</button></div>
+      ${open ? `<div class="owe-x">${p.bills.map((b, j) => `<label class="rf-row on"><input type="checkbox" data-ob="${j}" checked><span>${esc(billName(b.x))}<small>${thaiDate(b.x.date)} · จ่าย ฿${fmt(b.x.amount)}</small></span><span>฿${fmt(b.amt)}</span></label>`).join("")}
+        <button type="button" class="btn" data-paid="${k}">บันทึกว่า${esc(p.name)}คืนแล้ว ฿${fmt(p.total)}</button>
+        <p class="hint" style="margin:0">ติ๊กออกได้ถ้าคืนมาแค่บางบิล</p></div>`
+      : `<div class="owe-bl">${p.bills.map(b => billRow(b)).join("")}</div>`}
+    </div>`; }).join("")
+  + (un ? `<div class="owe-p owe-un">
+      <div class="owe-top" style="cursor:default"><span class="av none">?</span><b>ยังไม่ได้ใส่ชื่อ<small>${un.bills.length} บิล · กด “ใส่ชื่อ” ว่าใครต้องคืน</small></b><span class="amt">฿${fmt(un.total)}</span><span></span></div>
+      <div class="owe-bl">${un.bills.map(b => billRow(b, `<span class="owe-act"><button type="button" class="btn small" data-name="${b.x.id}">ใส่ชื่อ</button><button type="button" class="btn small ghost" data-done="${b.x.id}">คืนแล้ว</button></span>`)).join("")}</div>
+    </div>` : "");
 }
-let oweL = [];
+function markRepaid(name, picks) {
+  const amt = Math.round(picks.reduce((s, b) => s + b.amt, 0) * 100) / 100;
+  state.items.push({ id: uid(), date: todayISO(), time: "", amount: amt, fee: 0, to: name || "เพื่อน", from: "", type: "in", cat: "in-refund", excluded: false,
+    friend: name, refundAlloc: picks.map(b => ({ id: b.x.id, amt: b.amt })), refundOf: picks[0].x.id, bank: "", ref: "", note: "บันทึกจากช่องเพื่อนยังค้าง · ไม่มีสลิป", thumb: "", raw: "", check: false, sample: false, created: Date.now() });
+  oweOpen = ""; save(); render(); toast(`บันทึกว่า${name || "เพื่อน"}คืน ฿${fmt(amt)} แล้ว · ยกเลิกได้ในหน้ารายการนั้น`);
+}
 $("owe-list").addEventListener("click", async e => {
   const cp = e.target.closest("[data-copy]");
   if (cp) { e.stopPropagation(); const p = oweL[+cp.dataset.copy];
-    const txt = `${p.name} ค้างค่า\n` + p.bills.map(b => `• ${b.x.to || b.x.note || "รายการ"} (${thaiDate(b.x.date)}) ฿${fmt(b.amt)}`).join("\n") + `\nรวม ฿${fmt(p.total)} นะ 🙏`;
+    const txt = `${p.name} ค้างค่า\n` + p.bills.map(b => `• ${billName(b.x)} (${thaiDate(b.x.date)}) ฿${fmt(b.amt)}`).join("\n") + `\nรวม ฿${fmt(p.total)} นะ 🙏`;
     try { await navigator.clipboard.writeText(txt); toast("คัดลอกข้อความทวงแล้ว ไปวางในไลน์ได้เลย"); } catch (er) { toast("คัดลอกไม่ได้"); } return; }
+  const nm = e.target.closest("[data-name]");
+  if (nm) { openSheet(nm.dataset.name);
+    if (!editDebtors.length) { const f = formShare(); for (let k = 0; k < Math.max(1, f.n - 1); k++) $("dbt-add").click(); }
+    setTimeout(() => { $("dbt-box").scrollIntoView({ block: "center" }); const i = $("dbt-list").querySelector("[data-dn]"); if (i) i.focus(); }, 50); return; }
+  const dn = e.target.closest("[data-done]");
+  if (dn) { const id = dn.dataset.done;
+    if (oweArm !== id || Date.now() - oweT > 3000) { oweArm = id; oweT = Date.now(); dn.textContent = "แตะอีกครั้ง"; return; }
+    oweArm = ""; const un = oweL.find(p => !p.name); markRepaid("", un.bills.filter(b => b.x.id === id)); return; }
   const pd = e.target.closest("[data-paid]");
   if (pd) { const p = oweL[+pd.dataset.paid], box = pd.closest(".owe-p");
     const picks = p.bills.filter((b, j) => box.querySelector(`[data-ob="${j}"]`).checked);
-    if (!picks.length) return toast("ติ๊กรายการที่เพื่อนคืนก่อน");
-    const amt = Math.round(picks.reduce((s, b) => s + b.amt, 0) * 100) / 100;
-    state.items.push({ id: uid(), date: todayISO(), time: "", amount: amt, fee: 0, to: p.name || "เพื่อน", from: "", type: "in", cat: "in-refund", excluded: false,
-      friend: p.name, refundAlloc: picks.map(b => ({ id: b.x.id, amt: b.amt })), refundOf: picks[0].x.id, bank: "", ref: "", note: "บันทึกจากช่องเพื่อนยังค้าง · ไม่มีสลิป", thumb: "", raw: "", check: false, sample: false, created: Date.now() });
-    oweOpen = ""; save(); render(); toast(`บันทึกว่า${p.name || "เพื่อน"}คืน ฿${fmt(amt)} แล้ว`); return; }
+    if (!picks.length) return toast("ติ๊กบิลที่เพื่อนคืนก่อน");
+    markRepaid(p.name, picks); return; }
   const tg = e.target.closest("[data-tog]");
-  if (tg) { const p = oweL[+tg.dataset.tog], key = p.name || "__none"; oweOpen = oweOpen === key ? "" : key; renderOwe(); }
+  if (tg) { const p = oweL[+tg.dataset.tog]; oweOpen = oweOpen === p.name ? "" : p.name; renderOwe(); }
 });
 $("owe-list").addEventListener("change", e => {
   const c = e.target.closest("[data-ob]"); if (!c) return;
   const box = c.closest(".owe-p"), p = oweL[+box.dataset.k];
   const amt = p.bills.reduce((s, b, j) => s + (box.querySelector(`[data-ob="${j}"]`).checked ? b.amt : 0), 0);
-  box.querySelector("[data-paid]").textContent = `บันทึกว่า${p.name || "เพื่อน"}คืนแล้ว ฿${fmt(amt)}`;
+  box.querySelector("[data-paid]").textContent = `บันทึกว่า${p.name}คืนแล้ว ฿${fmt(amt)}`;
   c.closest(".rf-row").classList.toggle("on", c.checked);
 });
 
