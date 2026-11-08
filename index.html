@@ -259,6 +259,9 @@ label.f select { font-size: 15px; }
 .owe-b { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .owe-b small { display: block; color: var(--muted); font-size: 12px; }
 .owe-ba { font-weight: 600; white-space: nowrap; }
+.net-box { border: 1px dashed var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+.net-box[open] { display: grid; } .net-box summary { cursor: pointer; font-size: 14px; color: var(--accent); }
+.net-box select { width: 100%; }
 .owe-act { grid-column: 1 / -1; display: flex; gap: 8px; }
 .owe-act .btn { flex: 1; }
 .owe-x { margin-top: 10px; display: grid; gap: 6px; }
@@ -378,7 +381,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 29 · 8 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 30 · 8 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -984,7 +987,19 @@ function friendLedger() {
   });
   return [...people.values()].sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1) || b.total - a.total);
 }
-let oweOpen = "", oweL = [], oweArm = "", oweT = 0;
+let oweOpen = "", oweL = [], oweArm = "", oweT = 0, oweNetOpen = false;
+// หักลบ: เพื่อนค้างเรา T (บิลที่ติ๊ก) และเพื่อนจ่ายแทนเรา X → ส่วนที่หักกันได้ = min(T, X) ไม่มีเงินเคลื่อนจริง (noCash)
+function netCalc(box, p) {
+  const T = Math.round(p.bills.reduce((s, b, j) => s + (box.querySelector(`[data-ob="${j}"]`).checked ? b.amt : 0), 0) * 100) / 100;
+  const X = num(box.querySelector("[data-netx]").value), off = Math.min(T, X);
+  return { T, X, off, pay: Math.round((X - T) * 100) / 100 };
+}
+function netShow(box, p) {
+  const { T, X, pay } = netCalc(box, p), el = box.querySelector("[data-netr]");
+  if (!X) { el.className = "rf-sum"; el.textContent = `ใส่ยอดที่${p.name}จ่ายแทนเรา แอปจะคิดให้ว่าใครต้องโอนให้ใครเท่าไร`; return; }
+  el.className = "rf-sum ok";
+  el.innerHTML = `${p.name}ค้างเรา ฿${fmt(T)} · ${p.name}จ่ายแทนเรา ฿${fmt(X)}<br>` + (Math.abs(pay) < 0.005 ? "<b>หักกันพอดี ไม่ต้องโอน ✓</b>" : pay > 0 ? `→ <b>เราต้องโอนให้${esc(p.name)} ฿${fmt(pay)}</b>` : `→ <b>${esc(p.name)}ต้องโอนคืนเรา ฿${fmt(-pay)}</b>`);
+}
 const billName = x => x.to || x.note || "รายการ";
 function renderOwe() {
   const L = friendLedger(), tot = L.reduce((s, p) => s + p.total, 0);
@@ -998,7 +1013,14 @@ function renderOwe() {
       <div class="owe-top" data-tog="${k}"><span class="av">${esc(p.name.slice(0, 1))}</span><b>${esc(p.name)}<small>${p.bills.length} บิล · แตะเพื่อบันทึกว่าคืนแล้ว</small></b><span class="amt">฿${fmt(p.total)}</span><button type="button" class="btn small" data-copy="${k}">ทวง</button></div>
       ${open ? `<div class="owe-x">${p.bills.map((b, j) => `<label class="rf-row on"><input type="checkbox" data-ob="${j}" checked><span>${esc(billName(b.x))}<small>${thaiDate(b.x.date)} · จ่าย ฿${fmt(b.x.amount)}</small></span><span>฿${fmt(b.amt)}</span></label>`).join("")}
         <button type="button" class="btn" data-paid="${k}">บันทึกว่า${esc(p.name)}คืนแล้ว ฿${fmt(p.total)}</button>
-        <p class="hint" style="margin:0">ติ๊กออกได้ถ้าคืนมาแค่บางบิล</p></div>`
+        <p class="hint" style="margin:0">ติ๊กออกได้ถ้าคืนมาแค่บางบิล</p>
+        <details class="net-box"${oweNetOpen ? " open" : ""}><summary>🔁 ${esc(p.name)}ก็จ่ายแทนเราไปด้วย? หักลบกันตรงนี้</summary>
+          <label class="f">ส่วนของเราที่${esc(p.name)}จ่ายแทนไป (บาท)<input data-netx="${k}" inputmode="decimal" autocomplete="off" placeholder="เช่น 400"></label>
+          <label class="f">ค่าอะไร<input data-netd="${k}" autocomplete="off" placeholder="เช่น ที่พักบางแสน"></label>
+          <label class="f">หมวด<select data-netc="${k}">${CATS_OUT.map(c => `<option value="${c.id}"${c.id === "travel" ? " selected" : ""}>${esc(c.name)}</option>`).join("")}</select></label>
+          <div class="rf-sum" data-netr="${k}">ใส่ยอดที่${esc(p.name)}จ่ายแทนเรา แอปจะคิดให้ว่าใครต้องโอนให้ใครเท่าไร</div>
+          <button type="button" class="btn" data-netgo="${k}">บันทึกหักลบ</button>
+        </details></div>`
       : `<div class="owe-bl">${p.bills.map(b => billRow(b)).join("")}</div>`}
     </div>`; }).join("")
   + (un ? `<div class="owe-p owe-un">
@@ -1025,6 +1047,20 @@ $("owe-list").addEventListener("click", async e => {
   if (dn) { const id = dn.dataset.done;
     if (oweArm !== id || Date.now() - oweT > 3000) { oweArm = id; oweT = Date.now(); dn.textContent = "แตะอีกครั้ง"; return; }
     oweArm = ""; const un = oweL.find(p => !p.name); markRepaid("", un.bills.filter(b => b.x.id === id)); return; }
+  const ng = e.target.closest("[data-netgo]");
+  if (ng) { const p = oweL[+ng.dataset.netgo], box = ng.closest(".owe-p"), { X, off, pay } = netCalc(box, p);
+    if (!X) return toast(`ใส่ยอดที่${p.name}จ่ายแทนเราก่อน`);
+    if (!off) return toast("ติ๊กบิลที่จะหักลบก่อน");
+    const desc = box.querySelector("[data-netd]").value.trim(), cat = box.querySelector("[data-netc]").value;
+    // ตัดยอดค้างตามบิลที่ติ๊ก (ตามลำดับ) ได้ไม่เกินส่วนที่หักกัน
+    let left = off; const alloc = [];
+    p.bills.forEach((b, j) => { if (!box.querySelector(`[data-ob="${j}"]`).checked || left < 0.005) return; const a = Math.round(Math.min(b.amt, left) * 100) / 100; alloc.push({ id: b.x.id, amt: a }); left -= a; });
+    const base = { date: todayISO(), time: "", fee: 0, from: "", excluded: false, bank: "", ref: "", thumb: "", raw: "", check: false, sample: false, noCash: true, created: Date.now() };
+    state.items.push({ ...base, id: uid(), amount: off, type: "in", cat: "in-refund", to: p.name, friend: p.name, refundAlloc: alloc, refundOf: alloc[0].id, note: `หักลบกับที่${p.name}จ่ายแทนเรา` });
+    state.items.push({ ...base, id: uid(), amount: off, type: "out", cat, to: `${p.name}จ่ายแทน${desc ? ": " + desc : ""}`, note: `ส่วนที่หักลบกับยอดที่${p.name}ค้างเรา (ไม่มีเงินโอนจริง)` });
+    oweOpen = ""; oweNetOpen = false; save(); render();
+    toast(pay > 0.005 ? `หักลบแล้ว · อย่าลืมโอนให้${p.name} ฿${fmt(pay)} (แคปสลิปมาใส่ได้)` : pay < -0.005 ? `หักลบแล้ว · ${p.name}ยังค้างเรา ฿${fmt(-pay)}` : "หักลบพอดีแล้ว ✓");
+    return; }
   const pd = e.target.closest("[data-paid]");
   if (pd) { const p = oweL[+pd.dataset.paid], box = pd.closest(".owe-p");
     const picks = p.bills.filter((b, j) => box.querySelector(`[data-ob="${j}"]`).checked);
@@ -1033,9 +1069,11 @@ $("owe-list").addEventListener("click", async e => {
   const tg = e.target.closest("[data-tog]");
   if (tg) { const p = oweL[+tg.dataset.tog]; oweOpen = oweOpen === p.name ? "" : p.name; renderOwe(); }
 });
+$("owe-list").addEventListener("input", e => { const x = e.target.closest("[data-netx]"); if (!x) return; oweNetOpen = true; const box = x.closest(".owe-p"); netShow(box, oweL[+box.dataset.k]); });
 $("owe-list").addEventListener("change", e => {
   const c = e.target.closest("[data-ob]"); if (!c) return;
   const box = c.closest(".owe-p"), p = oweL[+box.dataset.k];
+  if (box.querySelector("[data-netx]")) netShow(box, p);
   const amt = p.bills.reduce((s, b, j) => s + (box.querySelector(`[data-ob="${j}"]`).checked ? b.amt : 0), 0);
   box.querySelector("[data-paid]").textContent = `บันทึกว่า${p.name}คืนแล้ว ฿${fmt(amt)}`;
   c.closest(".rf-row").classList.toggle("on", c.checked);
@@ -1182,7 +1220,7 @@ async function handleFiles(files) {
         bank: p.bank, ref: p.ref, note: c.note, thumb, check: true, sample: false, raw: raw.slice(0, 3000), ...(p.balAfter != null ? { balAfter: p.balAfter } : {}) } }); continue; }
       // เงินเข้าที่ตรงกับ "เพื่อนคืนแล้ว" ซึ่งเคยกดบันทึกเองไว้ (ไม่มีสลิป): เป็นรายการเดียวกัน ไม่เพิ่มซ้ำ แค่เติมวันเวลาให้
       if (c.type === "in" && p.amount != null && p.date) {
-        const m = state.items.find(x => x.cat === "in-refund" && !x.matched && !x.ref && !x.time && x.amount === p.amount && Math.abs(Date.parse(x.date) - Date.parse(p.date)) <= 3 * 864e5);
+        const m = state.items.find(x => x.cat === "in-refund" && !x.noCash && !x.matched && !x.ref && !x.time && x.amount === p.amount && Math.abs(Date.parse(x.date) - Date.parse(p.date)) <= 3 * 864e5);
         if (m) { m.date = p.date; m.time = p.time; m.matched = true; dup++; continue; }
       }
       const maybe = maybeDup(p);
@@ -1311,7 +1349,7 @@ function cashFlow() {
   const b = state.settings.balance; let inn = 0, out = 0;
   if (!b) return { inn, out };
   state.items.forEach(i => {
-    if (i.sample || i.own || i.dateGuessed || !afterAnchor(i, b)) return;
+    if (i.sample || i.own || i.noCash || i.dateGuessed || !afterAnchor(i, b)) return;
     if (i.type === "in") inn += i.amount; else out += i.amount + (i.fee || 0);
   });
   return { inn, out };
@@ -1788,11 +1826,11 @@ $("settings-form").addEventListener("submit", e => {
 });
 
 /* ============ 9) CSV: ส่งออก สำรอง นำเข้า ============ */
-const HEAD = ["วันที่", "เวลา", "ประเภท", "จำนวนเงิน", "ค่าธรรมเนียม", "ผู้รับ/ผู้โอน", "หมวด", "นับในยอด", "ธนาคาร", "เลขอ้างอิง", "บันทึก", "หารกี่คน", "ส่วนของเรา", "รหัส", "คืนค่าของรหัส", "ส่วนของเรา(กำหนดเอง)", "ใครต้องคืน", "เพื่อนที่คืน"];
+const HEAD = ["วันที่", "เวลา", "ประเภท", "จำนวนเงิน", "ค่าธรรมเนียม", "ผู้รับ/ผู้โอน", "หมวด", "นับในยอด", "ธนาคาร", "เลขอ้างอิง", "บันทึก", "หารกี่คน", "ส่วนของเรา", "รหัส", "คืนค่าของรหัส", "ส่วนของเรา(กำหนดเอง)", "ใครต้องคืน", "เพื่อนที่คืน", "ไม่มีเงินโอนจริง"];
 function toCsv(rows) {
   const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   const body = rows.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
-    .map(i => [i.date, i.time, i.type === "in" ? "รายรับ" : "รายจ่าย", i.amount.toFixed(2), (i.fee || 0).toFixed(2), i.to, CAT[i.cat].name, i.excluded ? "ไม่นับ" : "นับ", i.bank, i.ref, i.note, i.split || 1, eff(i).toFixed(2), i.id, isRefund(i) && (i.refundAlloc || []).length ? i.refundAlloc.map(a => a.id + ":" + a.amt).join("|") : i.refundOf || "", i.mine > 0 ? i.mine.toFixed(2) : "", debtorsOf(i).map(d => d.name + ":" + d.amt).join("|"), i.friend || ""].map(q).join(","));
+    .map(i => [i.date, i.time, i.type === "in" ? "รายรับ" : "รายจ่าย", i.amount.toFixed(2), (i.fee || 0).toFixed(2), i.to, CAT[i.cat].name, i.excluded ? "ไม่นับ" : "นับ", i.bank, i.ref, i.note, i.split || 1, eff(i).toFixed(2), i.id, isRefund(i) && (i.refundAlloc || []).length ? i.refundAlloc.map(a => a.id + ":" + a.amt).join("|") : i.refundOf || "", i.mine > 0 ? i.mine.toFixed(2) : "", debtorsOf(i).map(d => d.name + ":" + d.amt).join("|"), i.friend || "", i.noCash ? "ใช่" : ""].map(q).join(","));
   return [HEAD.join(","), ...body].join("\r\n");
 }
 async function saveFile(name, text) {
@@ -1842,7 +1880,7 @@ function parseCsv(text) {
 function importCsv(text) {
   const rows = parseCsv(text); if (rows.length < 2) return toast("ไฟล์นี้ไม่มีข้อมูล");
   const h = rows[0].map(s => s.trim()); const col = name => h.indexOf(name);
-  const ci = { d: col("วันที่"), t: col("เวลา"), ty: col("ประเภท"), a: col("จำนวนเงิน"), f: col("ค่าธรรมเนียม"), w: Math.max(col("ผู้รับ/ผู้โอน"), col("ผู้รับ")), c: col("หมวด"), x: col("นับในยอด"), b: col("ธนาคาร"), r: col("เลขอ้างอิง"), n: col("บันทึก"), sp: col("หารกี่คน"), id: col("รหัส"), rf: col("คืนค่าของรหัส"), mi: col("ส่วนของเรา(กำหนดเอง)"), dt: col("ใครต้องคืน"), fr: col("เพื่อนที่คืน") };
+  const ci = { d: col("วันที่"), t: col("เวลา"), ty: col("ประเภท"), a: col("จำนวนเงิน"), f: col("ค่าธรรมเนียม"), w: Math.max(col("ผู้รับ/ผู้โอน"), col("ผู้รับ")), c: col("หมวด"), x: col("นับในยอด"), b: col("ธนาคาร"), r: col("เลขอ้างอิง"), n: col("บันทึก"), sp: col("หารกี่คน"), id: col("รหัส"), rf: col("คืนค่าของรหัส"), mi: col("ส่วนของเรา(กำหนดเอง)"), dt: col("ใครต้องคืน"), fr: col("เพื่อนที่คืน"), nc: col("ไม่มีเงินโอนจริง") };
   if (ci.d < 0 || ci.a < 0) return toast("ไฟล์นี้ไม่ใช่ CSV จาก SLIP฿SUM");
   if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
   let added = 0, dup = 0;
@@ -1855,7 +1893,7 @@ function importCsv(text) {
     const found = set.find(c => c.name === g("c"));
     const cat = found ? found.id : (g("c") && addCustomCat(g("c"), type)) || (type === "in" ? "in-other" : "other");
     const gid = g("id");
-    const it = { id: gid && !state.items.some(i => i.id === gid) ? gid : uid(), date, time: g("t"), type, amount, fee: parseFloat(g("f")) || 0, to: g("w"), from: "", cat, excluded: g("x") === "ไม่นับ", bank: g("b"), ref: g("r"), note: g("n"), split: Math.max(1, parseInt(g("sp")) || 1), mine: parseFloat(g("mi")) || 0, refundOf: g("rf").split("|")[0].split(":")[0], refundAlloc: /:/.test(g("rf")) ? g("rf").split("|").map(t => { const [id, a] = t.split(":"); return { id, amt: parseFloat(a) || 0 }; }) : [], debtors: g("dt") ? g("dt").split("|").map(t => { const k = t.lastIndexOf(":"); return { name: t.slice(0, k), amt: parseFloat(t.slice(k + 1)) || 0 }; }).filter(d => d.name) : [], friend: g("fr"), thumb: "", raw: "", check: false, sample: false };
+    const it = { id: gid && !state.items.some(i => i.id === gid) ? gid : uid(), date, time: g("t"), type, amount, fee: parseFloat(g("f")) || 0, to: g("w"), from: "", cat, excluded: g("x") === "ไม่นับ", bank: g("b"), ref: g("r"), note: g("n"), split: Math.max(1, parseInt(g("sp")) || 1), mine: parseFloat(g("mi")) || 0, refundOf: g("rf").split("|")[0].split(":")[0], refundAlloc: /:/.test(g("rf")) ? g("rf").split("|").map(t => { const [id, a] = t.split(":"); return { id, amt: parseFloat(a) || 0 }; }) : [], debtors: g("dt") ? g("dt").split("|").map(t => { const k = t.lastIndexOf(":"); return { name: t.slice(0, k), amt: parseFloat(t.slice(k + 1)) || 0 }; }).filter(d => d.name) : [], friend: g("fr"), noCash: g("nc") === "ใช่", thumb: "", raw: "", check: false, sample: false };
     if (state.items.some(i => (it.ref && i.ref === it.ref) || (i.date === it.date && i.time === it.time && i.amount === it.amount && keyOf(i.to) === keyOf(it.to)))) { dup++; return; }
     state.items.push(it); added++;
   });
