@@ -224,6 +224,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 .row.in .amt { color: var(--pos); }
 .row.rf .amt { color: var(--muted); }
 .row.ex .who strong, .row.ex .amt { text-decoration: line-through; opacity: .5; }
+.row.pass .amt { opacity: .45; }
 .dot { width: 10px; height: 10px; flex: none; display: inline-block; }
 .flag { display: inline-block; font-size: 11px; font-weight: 600; color: #0a0a0a; background: var(--warn); border-radius: 999px; padding: 0 7px; margin-left: 4px; }
 .flag.ex, .flag.sp { color: #d0d3d6; background: #262626; }
@@ -387,7 +388,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 34 · 8 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 35 · 20 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -497,6 +498,16 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
         <button type="button" class="btn small" id="f-repay-btn" style="align-self:end">บันทึกว่าเพื่อนคืนแล้ว</button>
       </div>
     </div>
+    <div id="pass-box" hidden style="display:grid;gap:6px">
+      <label class="chk"><input type="checkbox" id="f-pass"><span>จ่ายแทนคนอื่น ด้วยเงินที่เขาโอน/ฝากมา<small>เช่น แม่ฝากเงินให้จ่ายค่าปลา เงินที่ได้มากับที่จ่ายไปไม่นับ คิดแค่ส่วนต่าง</small></span></label>
+      <div id="pass-more" hidden style="display:grid;gap:6px">
+        <label class="f">จ่ายแทนใคร<input id="f-pass-for" autocomplete="off" placeholder="เช่น แม่"></label>
+        <span class="f-l" style="font-size:13px;color:var(--muted)">เงินที่ได้มาสำหรับจ่ายนี้ (ติ๊กได้หลายรายการ)</span>
+        <div id="pass-list" class="rf-list"></div>
+        <div id="pass-sum" class="rf-sum"></div>
+      </div>
+    </div>
+    <p class="hint" id="pass-note" hidden style="margin:0"></p>
     <div id="refund-box" hidden style="display:grid;gap:4px">
       <div class="rf-head"><span class="f-l">เพื่อนคืนค่าอะไรบ้าง <small>(ติ๊กได้หลายรายการ)</small></span><button type="button" class="btn small" id="f-rf-auto">หาให้อัตโนมัติ</button></div>
       <label class="f">ใครโอนมา (ชื่อเพื่อน)<input id="f-rf-friend" list="friend-names" autocomplete="off" placeholder="เช่น ฟิล์ม"></label>
@@ -622,20 +633,33 @@ function daysIn(ym) { const [y, m] = ym.split("-").map(Number); return new Date(
 function todayISO() { const t = new Date(); return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`; }
 function prevYm(ym) { let [y, m] = ym.split("-").map(Number); m--; if (!m) { m = 12; y--; } return `${y}-${pad(m)}`; }
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-const isOut = i => i.type !== "in" && !i.excluded;
+// จ่ายแทนคนอื่นด้วยเงินที่เขาให้มา (passFrom = รายรับที่ใช้จ่าย): ไม่นับทั้งสองฝั่ง คิดแค่ส่วนต่าง
+let passIn = new Map(), passOut = new Map();
+const isOut = i => i.type !== "in" && !i.excluded && passOut.get(i.id) !== 0;
 // เงินคืน 1 ก้อนจับคู่ได้หลายรายจ่าย (refundAlloc = [{id, amt}]) ส่วนที่เกินยอดที่จับคู่ (เช่น ทิป) นับเป็นรายรับ
 const allocOf = i => i.refundAlloc && i.refundAlloc.length ? i.refundAlloc : i.refundOf ? [{ id: i.refundOf, amt: i.amount }] : [];
 const isRefund = i => i.type === "in" && !i.excluded && i.cat === "in-refund" && allocOf(i).length > 0;
 const refundExtra = i => isRefund(i) ? Math.max(0, Math.round((i.amount - allocOf(i).reduce((s, a) => s + a.amt, 0)) * 100) / 100) : 0;
-const isIn = i => i.type === "in" && !i.excluded && (i.cat !== "in-refund" || refundExtra(i) > 0);
+const isIn = i => i.type === "in" && !i.excluded && passIn.get(i.id) !== 0 && (i.cat !== "in-refund" || refundExtra(i) > 0);
 let refundMap = new Map();
-function buildRefunds() { refundMap = new Map(); state.items.forEach(i => { if (isRefund(i)) allocOf(i).forEach(a => refundMap.set(a.id, (refundMap.get(a.id) || 0) + a.amt)); }); }
+function buildRefunds() { refundMap = new Map(); state.items.forEach(i => { if (isRefund(i)) allocOf(i).forEach(a => refundMap.set(a.id, (refundMap.get(a.id) || 0) + a.amt)); }); buildPass(); }
+function passIns(x) { return (x.passFrom || []).map(id => state.items.find(i => i.id === id)).filter(i => i && i.type === "in" && !i.excluded); }
+function buildPass() {
+  passIn = new Map(); passOut = new Map();
+  state.items.forEach(x => {
+    if (x.type === "in" || x.excluded || !(x.passFrom || []).length) return;
+    const ins = passIns(x); if (!ins.length) return;
+    const left = Math.round((ins.reduce((s, i) => s + i.amount, 0) - x.amount) * 100) / 100;
+    passOut.set(x.id, Math.max(0, -left));                       // เงินที่ได้มาไม่พอ ส่วนที่ขาดเป็นรายจ่ายเรา
+    ins.forEach((i, k) => passIn.set(i.id, k === 0 ? Math.max(0, left) : 0));   // เหลือ = รายรับเรา
+  });
+}
 const refunded = i => refundMap.get(i.id) || 0;
 const hasMine = i => i.mine > 0 && i.mine < i.amount;
 const hasSplit = i => hasMine(i) || i.split > 1;
 const share = i => (hasMine(i) ? i.mine : i.split > 1 ? i.amount / i.split : i.amount);
 // ยอดที่เป็นของเราจริง: ถ้าตั้งส่วนของเรา (หารเท่ากันหรือใส่เอง) ใช้ส่วนนั้น ไม่งั้นใช้ยอดจ่ายลบเงินที่เพื่อนคืนมา
-function eff(i) { if (i.type === "in") return isRefund(i) ? refundExtra(i) : i.amount; return hasSplit(i) ? share(i) : Math.max(0, i.amount - refunded(i)); }
+function eff(i) { if (passIn.has(i.id)) return passIn.get(i.id); if (passOut.has(i.id)) return passOut.get(i.id); if (i.type === "in") return isRefund(i) ? refundExtra(i) : i.amount; return hasSplit(i) ? share(i) : Math.max(0, i.amount - refunded(i)); }
 // ปัดเป็นสตางค์ เศษจากการหาร (เช่น 359/3) ไม่ให้ค้างเป็น "รอคืน 0"
 const owed = i => { if (!isOut(i) || !hasSplit(i)) return 0; const v = Math.round((i.amount - share(i) - refunded(i)) * 100) / 100; return v >= 0.02 ? v : 0; };
 const sum = arr => arr.reduce((s, i) => s + eff(i), 0);
@@ -1572,12 +1596,15 @@ function renderList(items) {
           + (!inn && hasMine(i) ? `<span class="flag sp">ส่วนเรา ${fmt0(i.mine)} จาก ${fmt0(i.amount)}</span>` : !inn && i.split > 1 ? `<span class="flag sp">หาร ${i.split} จาก ${fmt0(i.amount)}</span>` : "")
           + (!inn && back > 0 && !hasSplit(i) ? `<span class="flag sp">คืนแล้ว ${fmt0(back)}</span>` : "")
           + (ow > 0 ? `<span class="flag">รอคืน ${Number.isInteger(ow) ? fmt0(ow) : fmt(ow)}</span>` : "")
+          + (passOut.has(i.id) ? `<span class="flag sp">จ่ายแทน${esc(i.passFor || "คนอื่น")}</span>` + (passOut.get(i.id) ? `<span class="flag">เงินไม่พอ ส่วนเรา ${fmt(passOut.get(i.id))}</span>` : "") : "")
+          + (passIn.has(i.id) ? '<span class="flag sp">เงินที่ให้จ่ายแทน</span>' + (passIn.get(i.id) ? `<span class="flag in">เหลือเป็นของเรา ${fmt(passIn.get(i.id))}</span>` : "") : "")
           + (i.check ? '<span class="flag">ควรตรวจ</span>' : "");
-        return `<button class="row${inn && !rf ? " in" : ""}${rf ? " rf" : ""}${i.excluded ? " ex" : ""}" data-id="${i.id}">
+        const pz = passOut.get(i.id) === 0 || passIn.get(i.id) === 0;
+        return `<button class="row${inn && !rf ? " in" : ""}${rf ? " rf" : ""}${i.excluded ? " ex" : ""}${pz ? " pass" : ""}" data-id="${i.id}">
           <span class="dot" style="background:${CAT[i.cat].color}"></span>
           <span class="who"><strong>${inn ? "จาก " : ""}${esc(name)}</strong>
             <span>${i.time || "--:--"} · ${CAT[i.cat].name}${i.bank ? " · " + i.bank : ""}${tags}</span></span>
-          <span class="amt">${inn ? "+" : "−"}${fmt(inn ? i.amount : eff(i))}</span>
+          <span class="amt">${inn ? "+" : "−"}${fmt(inn || passOut.has(i.id) ? i.amount : eff(i))}</span>
         </button>`; }).join("")}</div>
     </div>`; }).join("");
   $("list").querySelectorAll(".row").forEach(b => b.onclick = () => openSheet(b.dataset.id));
@@ -1595,6 +1622,7 @@ function openSheet(id) {
   $("f-to").value = it ? it.to : "";
   $("f-note").value = it ? it.note : "";
   $("f-ex").checked = !!(it && it.excluded);
+  editPass = new Set(it && it.passFrom || []); $("f-pass").checked = editPass.size > 0; $("f-pass-for").value = it && it.passFor || "";
   $("f-thumb").hidden = !(it && it.thumb); if (it && it.thumb) { $("f-thumb").src = it.thumb; $("f-thumb").classList.remove("big"); }
   $("f-del").hidden = !it;
   $("f-raw").hidden = !(it && it.raw); $("f-raw").open = false; $("f-raw-text").textContent = it && it.raw ? it.raw : "";
@@ -1609,8 +1637,40 @@ function openSheet(id) {
   drawType(); drawChips();
   $("sheet").hidden = false;
 }
+let editPass = new Set();
+function passCands() {
+  const d0 = $("f-date").value || todayISO(), t0 = Date.parse(d0), it = editId;
+  const taken = new Set(state.items.filter(x => x.id !== it).flatMap(x => x.passFrom || []));
+  return state.items.filter(i => i.type === "in" && !i.excluded && !i.sample && i.cat !== "in-refund" && !taken.has(i.id) && Math.abs(Date.parse(i.date) - t0) <= 7 * 864e5)
+    .sort((a, b) => Math.abs(Date.parse(a.date) - t0) - Math.abs(Date.parse(b.date) - t0) || (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 12);
+}
+function passAuto() {   // เลือกชุดรายรับที่รวมแล้วพอจ่าย และเหลือน้อยที่สุด
+  const A = num($("f-amount").value), c = passCands().slice(0, 10); let best = null;
+  for (let m = 1; m < (1 << c.length); m++) { let s = 0; const pick = []; c.forEach((x, k) => { if (m & (1 << k)) { s += x.amount; pick.push(x.id); } });
+    if (s >= A - 0.005 && (!best || s < best.s - 0.005 || (Math.abs(s - best.s) < 0.005 && pick.length < best.pick.length))) best = { s, pick }; }
+  editPass = new Set(best ? best.pick : []);
+}
+function drawPass() {
+  const on = $("f-pass").checked; $("pass-more").hidden = !on; $("split-box").hidden = editType !== "out" || on;
+  if (!on) return;
+  const c = passCands(), sel = state.items.filter(i => editPass.has(i.id) && !c.includes(i));
+  $("pass-list").innerHTML = [...sel, ...c].map(i => `<label class="rf-row${editPass.has(i.id) ? " on" : ""}"><input type="checkbox" data-ps="${i.id}"${editPass.has(i.id) ? " checked" : ""}><span>${esc(i.to || i.note || "เงินเข้า")}<small>${thaiDate(i.date)}${i.time ? " " + i.time : ""}</small></span><span>+฿${fmt(i.amount)}</span></label>`).join("") || `<p class="hint" style="margin:0">ไม่มีเงินเข้าในช่วง 7 วันนี้</p>`;
+  passSum();
+}
+function passSum() {
+  const A = num($("f-amount").value), S = state.items.filter(i => editPass.has(i.id)).reduce((s, i) => s + i.amount, 0), d = Math.round((S - A) * 100) / 100, el = $("pass-sum");
+  el.className = "rf-sum" + (editPass.size ? " ok" : "");
+  el.innerHTML = !editPass.size ? "ติ๊กเงินที่เขาโอน/ฝากมาให้จ่ายรายการนี้" : `ได้มา <b>฿${fmt(S)}</b> − จ่ายไป <b>฿${fmt(A)}</b><br>` +
+    (Math.abs(d) < 0.005 ? "พอดี ไม่นับทั้งคู่ ✓" : d > 0 ? `→ เหลือเป็นของเรา <b>฿${fmt(d)}</b> นับเป็นรายรับ` : `→ เงินไม่พอ ขาด <b>฿${fmt(-d)}</b> ส่วนนี้นับเป็นรายจ่ายของเรา`);
+}
+$("f-pass").addEventListener("change", () => { if ($("f-pass").checked && !editPass.size) passAuto(); drawPass(); });
+$("pass-list").addEventListener("change", e => { const id = e.target.dataset.ps; if (!id) return; e.target.checked ? editPass.add(id) : editPass.delete(id); drawPass(); });
+$("f-amount").addEventListener("input", () => { if ($("f-pass").checked) passSum(); });
 function syncExtra() {
   $("split-box").hidden = editType !== "out";
+  $("pass-box").hidden = editType !== "out"; drawPass();
+  const pi = editId && editType === "in" ? state.items.find(x => (x.passFrom || []).includes(editId)) : null;
+  $("pass-note").hidden = !pi; if (pi) $("pass-note").innerHTML = `เงินนี้ใช้จ่ายแทน${esc(pi.passFor || "คนอื่น")}: <b>${esc(pi.to || "รายการ")}</b> ฿${fmt(pi.amount)} (${thaiDate(pi.date)}) · แก้ได้ที่รายการนั้น`;
   const showRf = editType === "in" && editCat === "in-refund";
   $("refund-box").hidden = !showRf;
   if (showRf) {
@@ -1780,7 +1840,10 @@ $("sheet-form").addEventListener("submit", e => {
     debtors: editType === "out" && formShare().set ? editDebtors.filter(d => d.name && d.amt > 0).map(d => ({ name: d.name, amt: Math.round(d.amt * 100) / 100 })) : [],
     friend: editType === "in" && editCat === "in-refund" ? $("f-rf-friend").value.replace(/[:|]/g, "").trim() : "",
     mine: editType === "out" && formShare().set && formShare().n === 1 ? formShare().mine : 0,
-    refundOf: "", refundAlloc: [] };
+    refundOf: "", refundAlloc: [],
+    passFrom: editType === "out" && $("f-pass").checked ? [...editPass] : [], passFor: editType === "out" && $("f-pass").checked ? $("f-pass-for").value.trim() : "" };
+  if (editType === "out" && $("f-pass").checked && !editPass.size) { toast("ติ๊กเงินที่เขาให้มาก่อน หรือเอาติ๊ก “จ่ายแทนคนอื่น” ออก"); return; }
+  if (data.passFrom.length) { data.split = 1; data.mine = 0; data.debtors = []; }
   if (editType === "in" && editCat === "in-refund") {
     const al = [...editAlloc].filter(([, v]) => v > 0).map(([id, amt]) => ({ id, amt: Math.round(amt * 100) / 100 }));
     if (!al.length) { toast("ติ๊กก่อนว่าเพื่อนคืนค่าอะไร"); return; }
@@ -1839,11 +1902,11 @@ $("settings-form").addEventListener("submit", e => {
 });
 
 /* ============ 9) CSV: ส่งออก สำรอง นำเข้า ============ */
-const HEAD = ["วันที่", "เวลา", "ประเภท", "จำนวนเงิน", "ค่าธรรมเนียม", "ผู้รับ/ผู้โอน", "หมวด", "นับในยอด", "ธนาคาร", "เลขอ้างอิง", "บันทึก", "หารกี่คน", "ส่วนของเรา", "รหัส", "คืนค่าของรหัส", "ส่วนของเรา(กำหนดเอง)", "ใครต้องคืน", "เพื่อนที่คืน", "ไม่มีเงินโอนจริง"];
+const HEAD = ["วันที่", "เวลา", "ประเภท", "จำนวนเงิน", "ค่าธรรมเนียม", "ผู้รับ/ผู้โอน", "หมวด", "นับในยอด", "ธนาคาร", "เลขอ้างอิง", "บันทึก", "หารกี่คน", "ส่วนของเรา", "รหัส", "คืนค่าของรหัส", "ส่วนของเรา(กำหนดเอง)", "ใครต้องคืน", "เพื่อนที่คืน", "ไม่มีเงินโอนจริง", "จ่ายด้วยเงินจากรหัส", "จ่ายแทนใคร"];
 function toCsv(rows) {
   const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v);
   const body = rows.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
-    .map(i => [i.date, i.time, i.type === "in" ? "รายรับ" : "รายจ่าย", i.amount.toFixed(2), (i.fee || 0).toFixed(2), i.to, CAT[i.cat].name, i.excluded ? "ไม่นับ" : "นับ", i.bank, i.ref, i.note, i.split || 1, eff(i).toFixed(2), i.id, isRefund(i) && (i.refundAlloc || []).length ? i.refundAlloc.map(a => a.id + ":" + a.amt).join("|") : i.refundOf || "", i.mine > 0 ? i.mine.toFixed(2) : "", debtorsOf(i).map(d => d.name + ":" + d.amt).join("|"), i.friend || "", i.noCash ? "ใช่" : ""].map(q).join(","));
+    .map(i => [i.date, i.time, i.type === "in" ? "รายรับ" : "รายจ่าย", i.amount.toFixed(2), (i.fee || 0).toFixed(2), i.to, CAT[i.cat].name, i.excluded ? "ไม่นับ" : "นับ", i.bank, i.ref, i.note, i.split || 1, eff(i).toFixed(2), i.id, isRefund(i) && (i.refundAlloc || []).length ? i.refundAlloc.map(a => a.id + ":" + a.amt).join("|") : i.refundOf || "", i.mine > 0 ? i.mine.toFixed(2) : "", debtorsOf(i).map(d => d.name + ":" + d.amt).join("|"), i.friend || "", i.noCash ? "ใช่" : "", (i.passFrom || []).join("|"), i.passFor || ""].map(q).join(","));
   return [HEAD.join(","), ...body].join("\r\n");
 }
 async function saveFile(name, text) {
@@ -1970,7 +2033,7 @@ function parseCsv(text) {
 function importCsv(text) {
   const rows = parseCsv(text); if (rows.length < 2) return toast("ไฟล์นี้ไม่มีข้อมูล");
   const h = rows[0].map(s => s.trim()); const col = name => h.indexOf(name);
-  const ci = { d: col("วันที่"), t: col("เวลา"), ty: col("ประเภท"), a: col("จำนวนเงิน"), f: col("ค่าธรรมเนียม"), w: Math.max(col("ผู้รับ/ผู้โอน"), col("ผู้รับ")), c: col("หมวด"), x: col("นับในยอด"), b: col("ธนาคาร"), r: col("เลขอ้างอิง"), n: col("บันทึก"), sp: col("หารกี่คน"), id: col("รหัส"), rf: col("คืนค่าของรหัส"), mi: col("ส่วนของเรา(กำหนดเอง)"), dt: col("ใครต้องคืน"), fr: col("เพื่อนที่คืน"), nc: col("ไม่มีเงินโอนจริง") };
+  const ci = { d: col("วันที่"), t: col("เวลา"), ty: col("ประเภท"), a: col("จำนวนเงิน"), f: col("ค่าธรรมเนียม"), w: Math.max(col("ผู้รับ/ผู้โอน"), col("ผู้รับ")), c: col("หมวด"), x: col("นับในยอด"), b: col("ธนาคาร"), r: col("เลขอ้างอิง"), n: col("บันทึก"), sp: col("หารกี่คน"), id: col("รหัส"), rf: col("คืนค่าของรหัส"), mi: col("ส่วนของเรา(กำหนดเอง)"), dt: col("ใครต้องคืน"), fr: col("เพื่อนที่คืน"), nc: col("ไม่มีเงินโอนจริง"), pf: col("จ่ายด้วยเงินจากรหัส"), pw: col("จ่ายแทนใคร") };
   if (ci.d < 0 || ci.a < 0) return toast("ไฟล์นี้ไม่ใช่ CSV จาก SLIP฿SUM");
   if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
   let added = 0, dup = 0;
@@ -1983,7 +2046,7 @@ function importCsv(text) {
     const found = set.find(c => c.name === g("c"));
     const cat = found ? found.id : (g("c") && addCustomCat(g("c"), type)) || (type === "in" ? "in-other" : "other");
     const gid = g("id");
-    const it = { id: gid && !state.items.some(i => i.id === gid) ? gid : uid(), date, time: g("t"), type, amount, fee: parseFloat(g("f")) || 0, to: g("w"), from: "", cat, excluded: g("x") === "ไม่นับ", bank: g("b"), ref: g("r"), note: g("n"), split: Math.max(1, parseInt(g("sp")) || 1), mine: parseFloat(g("mi")) || 0, refundOf: g("rf").split("|")[0].split(":")[0], refundAlloc: /:/.test(g("rf")) ? g("rf").split("|").map(t => { const [id, a] = t.split(":"); return { id, amt: parseFloat(a) || 0 }; }) : [], debtors: g("dt") ? g("dt").split("|").map(t => { const k = t.lastIndexOf(":"); return { name: t.slice(0, k), amt: parseFloat(t.slice(k + 1)) || 0 }; }).filter(d => d.name) : [], friend: g("fr"), noCash: g("nc") === "ใช่", thumb: "", raw: "", check: false, sample: false };
+    const it = { id: gid && !state.items.some(i => i.id === gid) ? gid : uid(), date, time: g("t"), type, amount, fee: parseFloat(g("f")) || 0, to: g("w"), from: "", cat, excluded: g("x") === "ไม่นับ", bank: g("b"), ref: g("r"), note: g("n"), split: Math.max(1, parseInt(g("sp")) || 1), mine: parseFloat(g("mi")) || 0, refundOf: g("rf").split("|")[0].split(":")[0], refundAlloc: /:/.test(g("rf")) ? g("rf").split("|").map(t => { const [id, a] = t.split(":"); return { id, amt: parseFloat(a) || 0 }; }) : [], debtors: g("dt") ? g("dt").split("|").map(t => { const k = t.lastIndexOf(":"); return { name: t.slice(0, k), amt: parseFloat(t.slice(k + 1)) || 0 }; }).filter(d => d.name) : [], friend: g("fr"), noCash: g("nc") === "ใช่", passFrom: g("pf") ? g("pf").split("|") : [], passFor: g("pw"), thumb: "", raw: "", check: false, sample: false };
     if (state.items.some(i => (it.ref && i.ref === it.ref) || (i.date === it.date && i.time === it.time && i.amount === it.amount && keyOf(i.to) === keyOf(it.to)))) { dup++; return; }
     state.items.push(it); added++;
   });
