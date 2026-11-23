@@ -388,7 +388,7 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
   </div>
   <div class="note err" id="err-note" hidden></div>
   <div class="note dup" id="dup-note" hidden></div>
-  <div class="ver" id="ver">เวอร์ชัน 35 · 20 พ.ย. 69</div>
+  <div class="ver" id="ver">เวอร์ชัน 36 · 23 พ.ย. 69</div>
 
   <div class="prog" id="prog" hidden>
     <div class="prog-top"><span id="prog-text">กำลังเตรียม…</span><span class="num" id="prog-num"></span></div>
@@ -499,10 +499,10 @@ label.chk small { display: block; color: var(--dim); font-size: 12.5px; }
       </div>
     </div>
     <div id="pass-box" hidden style="display:grid;gap:6px">
-      <label class="chk"><input type="checkbox" id="f-pass"><span>จ่ายแทนคนอื่น ด้วยเงินที่เขาโอน/ฝากมา<small>เช่น แม่ฝากเงินให้จ่ายค่าปลา เงินที่ได้มากับที่จ่ายไปไม่นับ คิดแค่ส่วนต่าง</small></span></label>
+      <label class="chk"><input type="checkbox" id="f-pass"><span><span id="pass-label">จ่ายแทนคนอื่น ด้วยเงินที่เขาโอน/ฝากมา</span><small id="pass-hint">เช่น แม่ฝากเงินให้จ่ายค่าปลา เงินที่ได้มากับที่จ่ายไปไม่นับ คิดแค่ส่วนต่าง</small></span></label>
       <div id="pass-more" hidden style="display:grid;gap:6px">
         <label class="f">จ่ายแทนใคร<input id="f-pass-for" autocomplete="off" placeholder="เช่น แม่"></label>
-        <span class="f-l" style="font-size:13px;color:var(--muted)">เงินที่ได้มาสำหรับจ่ายนี้ (ติ๊กได้หลายรายการ)</span>
+        <span class="f-l" id="pass-what" style="font-size:13px;color:var(--muted)">เงินที่ได้มาสำหรับจ่ายนี้ (ติ๊กได้หลายรายการ)</span>
         <div id="pass-list" class="rf-list"></div>
         <div id="pass-sum" class="rf-sum"></div>
       </div>
@@ -644,14 +644,20 @@ const isIn = i => i.type === "in" && !i.excluded && passIn.get(i.id) !== 0 && (i
 let refundMap = new Map();
 function buildRefunds() { refundMap = new Map(); state.items.forEach(i => { if (isRefund(i)) allocOf(i).forEach(a => refundMap.set(a.id, (refundMap.get(a.id) || 0) + a.amt)); }); buildPass(); }
 function passIns(x) { return (x.passFrom || []).map(id => state.items.find(i => i.id === id)).filter(i => i && i.type === "in" && !i.excluded); }
+// 1 เงินที่ได้มาจ่ายแทนได้หลายรายการ และ 1 รายการใช้เงินหลายก้อนได้: รวมเป็นกลุ่ม แล้วคิดส่วนต่างของทั้งกลุ่ม
 function buildPass() {
   passIn = new Map(); passOut = new Map();
-  state.items.forEach(x => {
-    if (x.type === "in" || x.excluded || !(x.passFrom || []).length) return;
-    const ins = passIns(x); if (!ins.length) return;
-    const left = Math.round((ins.reduce((s, i) => s + i.amount, 0) - x.amount) * 100) / 100;
-    passOut.set(x.id, Math.max(0, -left));                       // เงินที่ได้มาไม่พอ ส่วนที่ขาดเป็นรายจ่ายเรา
-    ins.forEach((i, k) => passIn.set(i.id, k === 0 ? Math.max(0, left) : 0));   // เหลือ = รายรับเรา
+  const par = new Map(), find = a => { while (par.get(a) !== a) { par.set(a, par.get(par.get(a))); a = par.get(a); } return a; };
+  const join = (a, b) => { [a, b].forEach(k => { if (!par.has(k)) par.set(k, k); }); par.set(find(a), find(b)); };
+  state.items.forEach(x => { if (x.type === "in" || x.excluded || !(x.passFrom || []).length) return; passIns(x).forEach(i => join(x.id, i.id)); });
+  const groups = new Map();
+  par.forEach((_, k) => { const g = find(k); if (!groups.has(g)) groups.set(g, []); const it = state.items.find(i => i.id === k); if (it) groups.get(g).push(it); });
+  groups.forEach(arr => {
+    const ins = arr.filter(i => i.type === "in").sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const outs = arr.filter(i => i.type !== "in").sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const left = Math.round((ins.reduce((s, i) => s + i.amount, 0) - outs.reduce((s, i) => s + i.amount, 0)) * 100) / 100;
+    ins.forEach((i, k) => passIn.set(i.id, k === ins.length - 1 ? Math.max(0, left) : 0));     // เหลือ = รายรับเรา (ใส่ไว้ที่ก้อนล่าสุด)
+    outs.forEach((x, k) => passOut.set(x.id, k === outs.length - 1 ? Math.max(0, -left) : 0)); // ไม่พอ = รายจ่ายเรา
   });
 }
 const refunded = i => refundMap.get(i.id) || 0;
@@ -1622,7 +1628,9 @@ function openSheet(id) {
   $("f-to").value = it ? it.to : "";
   $("f-note").value = it ? it.note : "";
   $("f-ex").checked = !!(it && it.excluded);
-  editPass = new Set(it && it.passFrom || []); $("f-pass").checked = editPass.size > 0; $("f-pass-for").value = it && it.passFor || "";
+  const linked = it && it.type === "in" ? state.items.filter(x => (x.passFrom || []).includes(it.id)) : [];
+  editPass = new Set(it ? (it.type === "in" ? linked.map(x => x.id) : it.passFrom || []) : []);
+  $("f-pass").checked = editPass.size > 0; $("f-pass-for").value = it ? (it.type === "in" ? (linked[0] || {}).passFor || "" : it.passFor || "") : "";
   $("f-thumb").hidden = !(it && it.thumb); if (it && it.thumb) { $("f-thumb").src = it.thumb; $("f-thumb").classList.remove("big"); }
   $("f-del").hidden = !it;
   $("f-raw").hidden = !(it && it.raw); $("f-raw").open = false; $("f-raw-text").textContent = it && it.raw ? it.raw : "";
@@ -1639,9 +1647,8 @@ function openSheet(id) {
 }
 let editPass = new Set();
 function passCands() {
-  const d0 = $("f-date").value || todayISO(), t0 = Date.parse(d0), it = editId;
-  const taken = new Set(state.items.filter(x => x.id !== it).flatMap(x => x.passFrom || []));
-  return state.items.filter(i => i.type === "in" && !i.excluded && !i.sample && i.cat !== "in-refund" && !taken.has(i.id) && Math.abs(Date.parse(i.date) - t0) <= 7 * 864e5)
+  const d0 = $("f-date").value || todayISO(), t0 = Date.parse(d0), want = editType === "in" ? "out" : "in";
+  return state.items.filter(i => i.id !== editId && (i.type === "in" ? "in" : "out") === want && !i.excluded && !i.sample && !i.noCash && i.cat !== "in-refund" && (want === "in" || !hasSplit(i)) && Math.abs(Date.parse(i.date) - t0) <= 7 * 864e5)
     .sort((a, b) => Math.abs(Date.parse(a.date) - t0) - Math.abs(Date.parse(b.date) - t0) || (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 12);
 }
 function passAuto() {   // เลือกชุดรายรับที่รวมแล้วพอจ่าย และเหลือน้อยที่สุด
@@ -1654,23 +1661,29 @@ function drawPass() {
   const on = $("f-pass").checked; $("pass-more").hidden = !on; $("split-box").hidden = editType !== "out" || on;
   if (!on) return;
   const c = passCands(), sel = state.items.filter(i => editPass.has(i.id) && !c.includes(i));
-  $("pass-list").innerHTML = [...sel, ...c].map(i => `<label class="rf-row${editPass.has(i.id) ? " on" : ""}"><input type="checkbox" data-ps="${i.id}"${editPass.has(i.id) ? " checked" : ""}><span>${esc(i.to || i.note || "เงินเข้า")}<small>${thaiDate(i.date)}${i.time ? " " + i.time : ""}</small></span><span>+฿${fmt(i.amount)}</span></label>`).join("") || `<p class="hint" style="margin:0">ไม่มีเงินเข้าในช่วง 7 วันนี้</p>`;
+  const inMode = editType === "in";
+  $("pass-label").textContent = inMode ? "เงินนี้เขาให้มาจ่ายแทน" : "จ่ายแทนคนอื่น ด้วยเงินที่เขาโอน/ฝากมา";
+  $("pass-hint").textContent = inMode ? "ติ๊กรายจ่ายที่ใช้เงินก้อนนี้จ่ายแทนเขา ติ๊กได้หลายรายการ" : "เช่น แม่ฝากเงินให้จ่ายค่าปลา เงินที่ได้มากับที่จ่ายไปไม่นับ คิดแค่ส่วนต่าง";
+  $("pass-what").textContent = inMode ? "รายการที่จ่ายแทนด้วยเงินนี้ (ติ๊กได้หลายรายการ)" : "เงินที่ได้มาสำหรับจ่ายนี้ (ติ๊กได้หลายรายการ)";
+  $("pass-list").innerHTML = [...sel, ...c].map(i => `<label class="rf-row${editPass.has(i.id) ? " on" : ""}"><input type="checkbox" data-ps="${i.id}"${editPass.has(i.id) ? " checked" : ""}><span>${esc(i.to || i.note || (i.type === "in" ? "เงินเข้า" : "รายจ่าย"))}<small>${thaiDate(i.date)}${i.time ? " " + i.time : ""}</small></span><span>${i.type === "in" ? "+" : "−"}฿${fmt(i.amount)}</span></label>`).join("") || `<p class="hint" style="margin:0">ไม่มี${inMode ? "รายจ่าย" : "เงินเข้า"}ในช่วง 7 วันนี้</p>`;
   passSum();
 }
 function passSum() {
-  const A = num($("f-amount").value), S = state.items.filter(i => editPass.has(i.id)).reduce((s, i) => s + i.amount, 0), d = Math.round((S - A) * 100) / 100, el = $("pass-sum");
+  const A = num($("f-amount").value), T = state.items.filter(i => editPass.has(i.id)).reduce((s, i) => s + i.amount, 0), el = $("pass-sum"), inMode = editType === "in";
+  // รายจ่ายอื่นที่ใช้เงินก้อนเดียวกัน (คิดส่วนต่างรวมทั้งกลุ่ม)
+  const others = state.items.filter(x => x.type !== "in" && x.id !== editId && (inMode ? false : (x.passFrom || []).some(id => editPass.has(id))));
+  const S = inMode ? A : T, P = (inMode ? T : A) + others.reduce((s, x) => s + x.amount, 0), d = Math.round((S - P) * 100) / 100;
   el.className = "rf-sum" + (editPass.size ? " ok" : "");
-  el.innerHTML = !editPass.size ? "ติ๊กเงินที่เขาโอน/ฝากมาให้จ่ายรายการนี้" : `ได้มา <b>฿${fmt(S)}</b> − จ่ายไป <b>฿${fmt(A)}</b><br>` +
+  el.innerHTML = !editPass.size ? (inMode ? "ติ๊กรายจ่ายที่ใช้เงินนี้จ่ายแทน" : "ติ๊กเงินที่เขาโอน/ฝากมาให้จ่ายรายการนี้") : `ได้มา <b>฿${fmt(S)}</b> − จ่ายไป <b>฿${fmt(P)}</b>${inMode ? ` (${editPass.size} รายการ)` : others.length ? ` (รวมอีก ${others.length} รายการที่ใช้เงินก้อนนี้)` : ""}<br>` +
     (Math.abs(d) < 0.005 ? "พอดี ไม่นับทั้งคู่ ✓" : d > 0 ? `→ เหลือเป็นของเรา <b>฿${fmt(d)}</b> นับเป็นรายรับ` : `→ เงินไม่พอ ขาด <b>฿${fmt(-d)}</b> ส่วนนี้นับเป็นรายจ่ายของเรา`);
 }
-$("f-pass").addEventListener("change", () => { if ($("f-pass").checked && !editPass.size) passAuto(); drawPass(); });
+$("f-pass").addEventListener("change", () => { if ($("f-pass").checked && !editPass.size && editType !== "in") passAuto(); drawPass(); });
 $("pass-list").addEventListener("change", e => { const id = e.target.dataset.ps; if (!id) return; e.target.checked ? editPass.add(id) : editPass.delete(id); drawPass(); });
 $("f-amount").addEventListener("input", () => { if ($("f-pass").checked) passSum(); });
 function syncExtra() {
   $("split-box").hidden = editType !== "out";
-  $("pass-box").hidden = editType !== "out"; drawPass();
-  const pi = editId && editType === "in" ? state.items.find(x => (x.passFrom || []).includes(editId)) : null;
-  $("pass-note").hidden = !pi; if (pi) $("pass-note").innerHTML = `เงินนี้ใช้จ่ายแทน${esc(pi.passFor || "คนอื่น")}: <b>${esc(pi.to || "รายการ")}</b> ฿${fmt(pi.amount)} (${thaiDate(pi.date)}) · แก้ได้ที่รายการนั้น`;
+  $("pass-box").hidden = !(editType === "out" || editCat !== "in-refund"); drawPass();
+  $("pass-note").hidden = true;
   const showRf = editType === "in" && editCat === "in-refund";
   $("refund-box").hidden = !showRf;
   if (showRf) {
@@ -1842,7 +1855,7 @@ $("sheet-form").addEventListener("submit", e => {
     mine: editType === "out" && formShare().set && formShare().n === 1 ? formShare().mine : 0,
     refundOf: "", refundAlloc: [],
     passFrom: editType === "out" && $("f-pass").checked ? [...editPass] : [], passFor: editType === "out" && $("f-pass").checked ? $("f-pass-for").value.trim() : "" };
-  if (editType === "out" && $("f-pass").checked && !editPass.size) { toast("ติ๊กเงินที่เขาให้มาก่อน หรือเอาติ๊ก “จ่ายแทนคนอื่น” ออก"); return; }
+  if ($("f-pass").checked && !editPass.size && !(editType === "in" && editCat === "in-refund")) { toast(editType === "in" ? "ติ๊กรายจ่ายที่จ่ายแทนก่อน หรือเอาติ๊กออก" : "ติ๊กเงินที่เขาให้มาก่อน หรือเอาติ๊ก “จ่ายแทนคนอื่น” ออก"); return; }
   if (data.passFrom.length) { data.split = 1; data.mine = 0; data.debtors = []; }
   if (editType === "in" && editCat === "in-refund") {
     const al = [...editAlloc].filter(([, v]) => v > 0).map(([id, amt]) => ({ id, amt: Math.round(amt * 100) / 100 }));
@@ -1851,10 +1864,22 @@ $("sheet-form").addEventListener("submit", e => {
     data.refundAlloc = al; data.refundOf = al[0].id;
     if (!data.to && data.friend) data.to = data.friend;
   }
+  let savedId = editId;
   if (editId) Object.assign(state.items.find(i => i.id === editId), data);
   else {
     if (state.items.some(i => i.sample)) state.items = state.items.filter(i => !i.sample);
-    state.items.push({ id: uid(), fee: 0, from: "", bank: "", ref: "", thumb: "", raw: "", sample: false, created: Date.now(), ...data });
+    savedId = uid();
+    state.items.push({ id: savedId, fee: 0, from: "", bank: "", ref: "", thumb: "", raw: "", sample: false, created: Date.now(), ...data });
+  }
+  if (editType === "in") {   // ผูก/ยกเลิกผูกจากฝั่งเงินที่ได้มา: แก้ที่รายจ่ายแต่ละรายการ
+    const on = $("f-pass").checked && editCat !== "in-refund", who = $("f-pass-for").value.trim();
+    state.items.forEach(x => {
+      if (x.type === "in") return;
+      const arr = x.passFrom || [], has = arr.includes(savedId), want = on && editPass.has(x.id);
+      if (want && !has) { x.passFrom = arr.concat(savedId); x.split = 1; x.mine = 0; x.debtors = []; }
+      if (!want && has) x.passFrom = arr.filter(id => id !== savedId);
+      if (want && who) x.passFor = who;
+    });
   }
   if (data.to && !data.excluded && editCat !== "in-refund") state.catMap[data.type + ":" + keyOf(data.to)] = editCat;
   focusDate(date); save(); closeSheet(); render(); toast("บันทึกแล้ว");
